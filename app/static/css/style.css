@@ -1,0 +1,27 @@
+/* CSS untuk Dropdown Menu */
+.dropdown-menu {
+  display: none;
+  background-color: #06b6d4; /* Warna latar belakang */
+  border-radius: 0.5rem; /* Rounded corners */
+  padding: 0.5rem 0; /* Padding untuk submenu */
+  position: absolute; /* Posisi absolut untuk dropdown */
+  width: 100%; /* Lebar penuh untuk menyesuaikan dengan item */
+}
+
+/* Tampilkan dropdown saat tombol diklik */
+.dropdown-menu.show {
+  display: block;
+}
+
+/* CSS untuk link dalam dropdown menu */
+.dropdown-menu a {
+  display: block;
+  padding: 0.75rem 1rem; /* Padding untuk item */
+  color: #fff; /* Warna teks */
+  text-decoration: none; /* Menghapus garis bawah */
+  border-radius: 0.25rem; /* Rounded corners untuk item */
+}
+
+.dropdown-menu a:hover {
+  background-color: #0e7490; /* Warna latar belakang saat hover */
+}

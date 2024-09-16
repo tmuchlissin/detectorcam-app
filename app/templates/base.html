@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QHSE APP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='img/shield.png') }}"
+    />
+  </head>
+  <body class="bg-gray-100">
+    <!-- Sidebar Layout -->
+    <div class="flex">
+      <div
+        id="sidebar"
+        class="w-80 h-screen bg-cyan-600 text-white flex flex-col transition-all"
+      >
+        <div class="p-5 text-2xl font-semibold text-center">
+          <i class="fas fa-h-square"></i> QHSE APP
+        </div>
+        <hr class="border-white-300 mx-4" />
+        <nav class="flex-1 px-4 space-y-2 mt-4">
+          <a
+            href="{{ url_for('main.index') }}"
+            class="block py-3 px-4 rounded-lg bg-cyan-500 hover:bg-cyan-800 transition duration-200 flex items-center text-lg font-semibold mt-5"
+            data-title="Home"
+          >
+            <i class="fas fa-home mr-2"></i> Home
+          </a>
+
+          <!-- Detection Dropdown Button with Nested Object Detector -->
+          <div class="relative">
+            <!-- Detection Button -->
+            <button
+              id="detectionButton"
+              onclick="toggleDropdown('dropdownDetectionMenu')"
+              class="block w-full py-3 px-4 rounded-lg bg-cyan-500 hover:bg-cyan-800 transition duration-200 flex items-center text-lg font-semibold mt-5"
+              data-title="Detection"
+              data-level="1"
+            >
+              <i class="fas fa-dharmachakra mr-2"></i> Detection
+              <i class="fas fa-chevron-down ml-auto"></i>
+              <!-- Chevron stays on the right -->
+            </button>
+
+            <!-- Detection Dropdown Menu -->
+            <div id="dropdownDetectionMenu" class="dropdown-menu hidden">
+              <!-- Object Detector as a submenu inside Detection -->
+              <a
+                href="{{ url_for('detection.report') }}"
+                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                data-level="2"
+                data-parent="Detection"
+              >
+                <i class="fas fa-file-signature mr-2"></i> Report
+              </a>
+              <a
+                href="{{ url_for('detection.contact') }}"
+                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                data-level="2"
+                data-parent="Detection"
+              >
+                <i class="fas fa-tty mr-2"></i> Contact
+              </a>
+
+              <div class="relative">
+                <!-- Object Detector Button -->
+                <button
+                  id="objectDetectorButton"
+                  onclick="toggleDropdown('dropdownObjectDetectorMenu', 'dropdownDetectionMenu')"
+                  class="block w-full py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                  data-title="Object Detector"
+                  data-level="2"
+                  data-parent="Detection"
+                >
+                  <i class="fa-solid fa-desktop mr-2"></i> Detector
+                  <i class="fas fa-chevron-down ml-auto"></i>
+                  <!-- Chevron stays on the right -->
+                </button>
+
+                <!-- Object Detector Dropdown Menu -->
+                <div
+                  id="dropdownObjectDetectorMenu"
+                  class="dropdown-menu hidden"
+                >
+                  <a
+                    href="{{ url_for('detection.ppe') }}"
+                    class="block py-2 px-16 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                    data-level="2"
+                    data-parent="Detection"
+                  >
+                    <i class="fas fa-hard-hat mr-2"></i> PPE
+                  </a>
+                  <a
+                    href="{{ url_for('detection.driver') }}"
+                    class="block py-2 px-16 rhover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                    data-level="2"
+                    data-parent="Detection"
+                  >
+                    <i class="fas fa-truck-moving mr-2"></i> Driver
+                  </a>
+                  <a
+                    href="{{ url_for('detection.danger_condition') }}"
+                    class="block py-2 px-16 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                    data-level="2"
+                    data-parent="Detection"
+                  >
+                    <i class="fas fa-hands-helping mr-2"></i> SOS
+                  </a>
+                  <a
+                    href="{{ url_for('detection.fire') }}"
+                    class="block py-2 px-16 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                    data-level="2"
+                    data-parent="Detection"
+                  >
+                    <i class="fab fa-hotjar mr-3"></i> Fire
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chatbot with Sub Buttons -->
+          <div class="relative">
+            <!-- Chatbot Button -->
+            <button
+              id="chatbotButton"
+              onclick="toggleDropdown('dropdownChatbotMenu')"
+              class="block w-full py-3 px-4 rounded-lg bg-cyan-500 hover:bg-cyan-800 transition duration-200 flex items-center text-lg font-semibold mt-5"
+              data-title="Chatbot"
+            >
+              <i class="fa-solid fa-robot mr-2"></i> Chatbot
+              <i class="fas fa-chevron-down ml-auto"></i>
+            </button>
+
+            <!-- Chatbot Dropdown Menu -->
+            <div id="dropdownChatbotMenu" class="dropdown-menu hidden">
+              <a
+                href="{{ url_for('chatbot.documents') }}"
+                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                data-level="2"
+                data-parent="Chatbot"
+              >
+                <i class="fas fa-cogs mr-2"></i> Documents
+              </a>
+              <a
+                href="{{ url_for('chatbot.live_chat') }}"
+                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
+                data-level="2"
+                data-parent="Chatbot"
+              >
+                <i class="fas fa-comments mr-2"></i>Live Chat
+              </a>
+            </div>
+          </div>
+        </nav>
+
+        <button
+          id="toggleSidebar"
+          class="text-gray-600 text-2xl focus:outline-none fixed bottom-4 right-4"
+        >
+          <i id="sidebarIcon" class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="flex-1">
+        <nav
+          class="bg-white border-b border-gray-300 px-8 py-5 flex justify-between items-center"
+        >
+          <button
+            id="toggleSidebarMain"
+            class="text-gray-600 text-2xl focus:outline-none"
+          >
+            <i id="sidebarIconMain" class="fas fa-times"></i>
+          </button>
+
+          <span id="navbarTitle" class="text-lg font-semibold">
+            {{ navbar_title }}
+          </span>
+
+          <div class="flex space-x-4">
+            <a href="#" class="text-gray-600 flex items-center">
+              <i class="fas fa-user mr-2"></i> Profile
+            </a>
+            <a href="#" class="text-gray-600 flex items-center">
+              <i class="fas fa-sign-out-alt mr-2"></i> Logout
+            </a>
+          </div>
+        </nav>
+
+        <main>{% block content %} {% endblock %}</main>
+      </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  </body>
+</html>

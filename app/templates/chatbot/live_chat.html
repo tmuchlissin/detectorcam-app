@@ -1,9 +1,99 @@
 {% extends "base.html" %} {% block content %}
 <div class="p-8">
-  <h1 class="text-2xl font-bold mb-4">Go Live Chat</h1>
-  <p>
-    Gunakan halaman ini untuk melakukan live chat dengan pengguna lain melalui
-    chatbot.
-  </p>
+  <h1 class="text-2xl font-bold mb-4">Chatbot</h1>
+
+  <div class="flex justify-center items-center h-[80vh]">
+    <div class="w-full max-w-2xl p-6 bg-white shadow-lg rounded-lg">
+      <!-- Chat Header -->
+      <div class="bg-blue-600 p-4 rounded-t-lg text-white text-center">
+        <h1 class="text-xl font-bold">QHSE-Bot 🤖</h1>
+      </div>
+
+      <!-- Chat History -->
+      <div
+        id="chat-history"
+        class="p-4 h-[65vh] overflow-y-scroll bg-gray-50 space-y-4"
+      >
+        <!-- Sample User Message -->
+        <div class="flex justify-end">
+          <div class="max-w-xs bg-blue-600 text-white p-3 rounded-lg">
+            <p>Hey! 👋</p>
+          </div>
+          <img
+            class="ml-2 w-10 h-10 rounded-full"
+            src="https://avatars.dicebear.com/api/avataaars/2.svg"
+            alt="User Avatar"
+          />
+        </div>
+
+        <!-- Sample Bot Message -->
+        <div class="flex justify-start">
+          <img
+            class="mr-2 w-10 h-10 rounded-full"
+            src="https://avatars.dicebear.com/api/bottts/1.svg"
+            alt="Bot Avatar"
+          />
+          <div class="max-w-xs bg-gray-300 p-3 rounded-lg">
+            <p>Hello! Ask me anything about 🤗</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Input -->
+      <div class="mt-4 flex">
+        <input
+          id="chat-input"
+          type="text"
+          placeholder="Ask me something..."
+          class="w-full p-3 border rounded-l-lg focus:outline-none"
+        />
+        <button
+          onclick="sendMessage()"
+          class="bg-blue-600 text-white p-3 rounded-r-lg hover:bg-blue-700"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
+
+<script>
+  // Function to handle sending message and updating the chat UI
+  function sendMessage() {
+    const chatInput = document.getElementById("chat-input");
+    const message = chatInput.value.trim();
+    if (message) {
+      const chatHistory = document.getElementById("chat-history");
+
+      // Append user's message
+      const userMessageDiv = document.createElement("div");
+      userMessageDiv.classList.add("flex", "justify-end");
+      userMessageDiv.innerHTML = `
+                    <div class="max-w-xs bg-blue-600 text-white p-3 rounded-lg">
+                        <p>${message}</p>
+                    </div>
+                    <img class="ml-2 w-10 h-10 rounded-full" src="https://avatars.dicebear.com/api/avataaars/2.svg" alt="User Avatar">
+                `;
+      chatHistory.appendChild(userMessageDiv);
+
+      // Simulate bot response (for now)
+      const botMessageDiv = document.createElement("div");
+      botMessageDiv.classList.add("flex", "justify-start");
+      botMessageDiv.innerHTML = `
+                    <img class="mr-2 w-10 h-10 rounded-full" src="https://avatars.dicebear.com/api/bottts/1.svg" alt="Bot Avatar">
+                    <div class="max-w-xs bg-gray-300 p-3 rounded-lg">
+                        <p>I'm thinking... 🤖</p>
+                    </div>
+                `;
+      chatHistory.appendChild(botMessageDiv);
+
+      // Scroll chat to bottom
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+
+      // Clear input field
+      chatInput.value = "";
+    }
+  }
+</script>
 {% endblock %}

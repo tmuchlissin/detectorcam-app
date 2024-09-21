@@ -1,9 +1,138 @@
 {% extends "base.html" %} {% block content %}
 <div class="p-8">
-  <h1 class="text-2xl font-bold mb-4">Documents</h1>
-  <p>
-    Di sini Anda dapat mengelola dokumen prosedur operasional terkait dengan
-    chatbot.
-  </p>
+  <h1 class="text-2xl font-bold mb-4">Document List</h1>
+
+  <!-- Tombol Upload -->
+  <div class="mt-4">
+    <button
+      class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+      onclick="openModal()"
+    >
+      Upload Files
+    </button>
+  </div>
+
+  <!-- Tabel Dokumen -->
+  <table class="min-w-full bg-white border border-gray-200 mt-4">
+    <thead class="bg-gray-200 text-gray-600">
+      <tr>
+        <th class="py-2 px-4 border">ID</th>
+        <th class="py-2 px-4 border">Title</th>
+        <th class="py-2 px-4 border">Created At</th>
+        <th class="py-2 px-4 border">Updated At</th>
+        <th class="py-2 px-4 border">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for document in documents %}
+      <tr class="text-gray-700 text-center">
+        <td class="py-2 px-4 border">{{ document.id }}</td>
+        <td class="py-2 px-4 border">{{ document.title_file }}</td>
+        <td class="py-2 px-4 border">
+          {{ document.created_at.strftime('%d %B %Y %H:%M:%S') }}
+        </td>
+        <td class="py-2 px-4 border">
+          {{ document.updated_at.strftime('%d %B %Y %H:%M:%S') }}
+        </td>
+        <td class="py-2 px-4 border">
+          <!-- Tombol View untuk melihat file -->
+          <a
+            href="{{ url_for('chatbot.view_document', file_id=document.id) }}"
+            class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 mr-2"
+          >
+            <i class="fas fa-eye"></i>
+          </a>
+
+          <!-- Tombol Download -->
+          <a
+            href="{{ url_for('chatbot.download_file', file_id=document.id) }}"
+            class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 mr-2"
+          >
+            <i class="fas fa-download"></i>
+          </a>
+
+          <!-- Tombol Hapus -->
+          <form
+            action="{{ url_for('chatbot.delete_document', file_id=document.id) }}"
+            method="POST"
+            style="display: inline"
+          >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button
+              type="submit"
+              class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 mr-2"
+            >
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Modal Popup untuk Upload -->
+  <div
+    id="uploadModal"
+    class="fixed inset-0 hidden bg-gray-800 bg-opacity-50 justify-center items-center z-50"
+  >
+    <div class="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+      <h2 class="text-lg font-bold mb-4">Upload New Document</h2>
+
+      <form
+        action="{{ url_for('chatbot.documents') }}"
+        method="POST"
+        enctype="multipart/form-data"
+        class="space-y-4"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <!-- File Input tanpa Title -->
+        <div>
+          <label for="file" class="block text-sm font-medium text-gray-700">
+            File
+          </label>
+          <input
+            type="file"
+            name="file"
+            id="file"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none"
+            required
+          />
+        </div>
+
+        <!-- Submit Button -->
+        <div class="flex justify-end">
+          <button
+            type="submit"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Upload
+          </button>
+          <button
+            type="button"
+            class="ml-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+            onclick="closeModal()"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Popup Script -->
+  <script>
+    function openModal() {
+      document.getElementById("uploadModal").classList.remove("hidden");
+      document.getElementById("uploadModal").classList.add("flex");
+    }
+
+    function closeModal() {
+      document.getElementById("uploadModal").classList.add("hidden");
+      document.getElementById("uploadModal").classList.remove("flex");
+    }
+  </script>
+
+  {% endblock %}
 </div>
-{% endblock %}

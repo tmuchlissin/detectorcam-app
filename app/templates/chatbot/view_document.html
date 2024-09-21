@@ -29,12 +29,9 @@
     <!-- PDF Preview -->
     <iframe
       src="{{ preview_url }}"
-      class="w-full h-[750px]"
+      class="w-full h-[800px]"
       frameborder="0"
     ></iframe>
-    {% elif mime_type in ['image/png', 'image/jpeg', 'image/gif'] %}
-    <!-- Image Preview -->
-    <img src="{{ preview_url }}" class="w-full h-auto" alt="Document Image" />
     {% else %}
     <!-- Jika file bukan PDF atau gambar, tawarkan opsi download -->
     <p>

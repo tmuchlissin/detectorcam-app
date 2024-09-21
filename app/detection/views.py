@@ -2,6 +2,10 @@ from flask import Blueprint, render_template
 
 detection = Blueprint('detection', __name__)
 
+@detection.route('/detection/object-detector/cctv')
+def cctv():
+    return render_template('detection/cctv.html', navbar_title='Detection/CCTV')
+
 @detection.route('/detection/object-detector/report')
 def report():
     return render_template('detection/report.html', navbar_title='Detection/Report')
@@ -13,7 +17,6 @@ def contact():
 @detection.route('/detection/object-detector/ppe')
 def ppe():
     return render_template('detection/ppe.html', navbar_title='Detection/Object Detector/PPE Detector')
-
 
 @detection.route('/detection/object-detector/driver')
 def driver():

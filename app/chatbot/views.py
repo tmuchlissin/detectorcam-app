@@ -4,6 +4,7 @@ from app.extensions import db
 from app.models import Document
 from werkzeug.utils import secure_filename
 import os
+from datetime import datetime 
 
 chatbot = Blueprint('chatbot', __name__)
 
@@ -74,8 +75,8 @@ def documents():
 def preview_file(file_id):
     document = Document.query.get_or_404(file_id)
     return send_file(BytesIO(document.file_data), 
-                     download_name=document.title_file, 
-                     as_attachment=False)  # Pratinjau file
+                    download_name=document.title_file, 
+                    as_attachment=False)  # Pratinjau file
 
 
 @chatbot.route('/chatbot/documents/view/<int:file_id>')
@@ -87,17 +88,43 @@ def view_document(file_id):
     preview_url = url_for('chatbot.preview_file', file_id=document.id)
     
     return render_template('chatbot/view_document.html', navbar_title='Chatbot/Documents/View',
-                           document=document, 
-                           mime_type=mime_type,
-                           preview_url=preview_url)
+                        document=document, 
+                        mime_type=mime_type,
+                        preview_url=preview_url)
+
+@chatbot.route('/chatbot/documents/update/<int:file_id>', methods=['POST'])
+def update_file(file_id):
+    document = Document.query.get_or_404(file_id)
+    
+    # Ambil file baru
+    new_file = request.files.get('new_file')
+
+    if new_file and allowed_file(new_file.filename):
+        filename = secure_filename(new_file.filename)
+        file_data = new_file.read()
+
+        # Update dokumen dengan file baru
+        document.title_file = filename
+        document.file_data = file_data
+        document.updated_at = datetime.utcnow()
+
+        db.session.commit()
+
+        flash('Document updated successfully!', 'success')
+    else:
+        flash('File not allowed or no file selected!', 'error')
+
+    return redirect(url_for('chatbot.documents'))
+
+
 
 @chatbot.route('/chatbot/documents/download/<int:file_id>')
 def download_file(file_id):
     document = Document.query.get_or_404(file_id)
     if document.file_data:
         return send_file(BytesIO(document.file_data), 
-                         download_name=document.title_file, 
-                         as_attachment=True) 
+                        download_name=document.title_file, 
+                        as_attachment=True) 
     else:
         flash("No file data found!", "error")
         return redirect(url_for('chatbot.documents'))

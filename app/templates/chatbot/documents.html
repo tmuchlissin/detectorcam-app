@@ -5,17 +5,18 @@
   <!-- Tombol Upload -->
   <div class="mt-4">
     <button
-      class="bg-green-700 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
+      class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
       onclick="openModal()"
     >
-      Upload Files
+      <i class="fas fa-upload"></i> Upload Files
     </button>
+
     <!-- Tombol Upload Folder -->
     <button
-      class="bg-green-700 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
+      class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
       onclick="openModalForFolder()"
     >
-      Upload Folder
+      <i class="fas fa-folder-plus mr-2"></i> Upload Folder
     </button>
 
     <!-- Tombol Delete All -->
@@ -30,7 +31,7 @@
         class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-red-700 focus:outline-none"
         onclick="return confirm('Are you sure you want to delete all documents?');"
       >
-        Delete All
+        <i class="fas fa-trash mr-2"></i> Delete All
       </button>
     </form>
   </div>

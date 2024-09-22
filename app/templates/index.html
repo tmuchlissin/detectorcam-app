@@ -1,6 +1,18 @@
 {% extends "base.html" %} {% block content %}
 <div class="p-8">
-  <h1 class="text-2xl font-bold mb-4">Home Page</h1>
-  <p>Selamat datang di aplikasi QHSE. Ini adalah halaman utama.</p>
+  <!-- Kontainer baru untuk membungkus h1 dan card -->
+  <div class="max-w-full mx-auto">
+    <h1 class="text-2xl font-bold mb-4">Dashboard Overview</h1>
+    <div class="flex justify-between space-x-4 p-6">
+      {% for card in cards %}
+      <div
+        class="bg-{{ card.bg_color }} text-white w-full h-32 flex flex-col items-center justify-center rounded-lg shadow-lg"
+      >
+        <h2 class="text-lg font-extrabold mb-2">{{ card.title }}</h2>
+        <p>{{ card.content }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
 </div>
 {% endblock %}

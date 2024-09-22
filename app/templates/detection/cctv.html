@@ -1,6 +1,234 @@
 {% extends "base.html" %} {% block content %}
 <div class="p-8">
-  <h1 class="text-2xl font-bold mb-4">CCTV</h1>
-  <p>Halaman ini menampilkan CCTV.</p>
+  <h2 class="text-2xl font-bold mb-4">CCTV Cameras</h2>
+  <button
+    class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
+    id="addCameraBtn"
+  >
+    <i class="fas fa-camera mr-2"></i> Add Camera
+  </button>
+  <!-- Tombol Delete All -->
+  <form
+    action="{{ url_for('detection.delete_all_cameras') }}"
+    method="POST"
+    style="display: inline-block"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <button
+      type="submit"
+      class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-red-700 focus:outline-none"
+      onclick="return confirm('Are you sure you want to delete all cctv cameras?');"
+    >
+      <i class="fas fa-trash mr-2"></i> Delete All
+    </button>
+  </form>
+  <div class="overflow-x-auto">
+    <table class="min-w-full bg-white border border-gray-200 mt-4">
+      <thead>
+        <tr class="bg-gray-200 text-gray-600">
+          <th class="py-2 px-4 border">ID</th>
+          <th class="py-2 px-4 border">Location</th>
+          <th class="py-2 px-4 border">IP Address</th>
+          <th class="py-2 px-4 border">Type</th>
+          <th class="py-2 px-4 border">Status</th>
+          <th class="py-2 px-4 border">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for camera in cameras %}
+        <tr class="border-b text-center">
+          <td class="py-2 px-4">{{ camera.id }}</td>
+          <td class="py-2 px-4">{{ camera.location }}</td>
+          <td class="py-2 px-4">{{ camera.ip_address }}</td>
+          <td class="py-2 px-4">{{ camera.type }}</td>
+          <td class="py-2 px-4">{{ 'On' if camera.status else 'Off' }}</td>
+          <td class="py-2 px-4">
+            <button
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 mr-2"
+              onclick="openEditModal({{ camera.id }}, '{{ camera.location }}', '{{ camera.ip_address }}', {{ camera.status|tojson }}, '{{ camera.type }}')"
+              title="Edit Camera"
+            >
+              <i class="fas fa-edit"></i>
+            </button>
+
+            <form
+              action="{{ url_for('detection.view_camera', id=camera.id) }}"
+              method="GET"
+              class="inline-block"
+            >
+              <button
+                type="submit"
+                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 mr-2"
+                title="View Camera"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+            </form>
+            <form
+              action="{{ url_for('detection.delete_camera', id=camera.id) }}"
+              method="POST"
+              class="inline-block"
+              onclick="return confirm('Are you sure you want to delete this cctv camera?');"
+            >
+              {{ form.hidden_tag() }}
+              <button
+                type="submit"
+                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 mr-2"
+                title="Delete Camera"
+              >
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add Camera Modal -->
+  <div
+    id="cameraModal"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden transition-opacity duration-300 ease-in-out"
+  >
+    <div
+      class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 transform transition-transform duration-300 ease-in-out scale-90"
+    >
+      <div class="flex justify-between items-center border-b pb-2 mb-4">
+        <h5 class="text-xl font-bold text-gray-800">Add Camera</h5>
+        <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+          &times;
+        </button>
+      </div>
+      <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="mb-4">
+          {{ form.location.label(class='text-gray-700') }} {{
+          form.location(size=32, class='border border-gray-300 rounded w-full
+          p-2') }} {% for error in form.location.errors %}<span
+            class="text-red-500"
+            >{{ error }}</span
+          >{% endfor %}
+        </div>
+        <div class="mb-4">
+          {{ form.ip_address.label(class='text-gray-700') }} {{
+          form.ip_address(size=32, class='border border-gray-300 rounded w-full
+          p-2', placeholder="http://xxx.xxx.xxx.xxx") }} {% for error in
+          form.ip_address.errors %}<span class="text-red-500">{{ error }}</span
+          >{% endfor %}
+        </div>
+        <div class="mb-4">
+          {{ form.type.label(class='text-gray-700') }} {{
+          form.type(class='border border-gray-300 rounded w-full p-2') }} {% for
+          error in form.type.errors %}<span class="text-red-500"
+            >{{ error }}</span
+          >{% endfor %}
+        </div>
+        <button
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition duration-200"
+        >
+          {{ form.submit.label }}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Camera Modal -->
+  <div
+    id="editCameraModal"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden"
+  >
+    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
+      <div class="flex justify-between items-center border-b pb-2 mb-4">
+        <h5 class="text-xl font-bold">Edit Camera</h5>
+        <button id="closeEditModal" class="text-gray-500 hover:text-gray-700">
+          &times;
+        </button>
+      </div>
+      <form id="editCameraForm" method="POST" action="">
+        {{ form.hidden_tag() }}
+        <div class="mb-4">
+          <label for="editLocation">Location</label>
+          <input
+            type="text"
+            id="editLocation"
+            name="location"
+            class="border border-gray-300 rounded w-full p-2"
+            required
+          />
+        </div>
+        <div class="mb-4">
+          <label for="editIpAddress">IP Address</label>
+          <input
+            type="text"
+            id="editIpAddress"
+            name="ip_address"
+            class="border border-gray-300 rounded w-full p-2"
+            required
+          />
+        </div>
+        <div class="mb-4">
+          <label for="editType">Type</label>
+          <input
+            type="text"
+            id="editType"
+            name="type"
+            class="border border-gray-300 rounded w-full p-2"
+            required
+          />
+        </div>
+        <div class="mb-4">
+          <label for="editStatus">Status</label>
+          <select
+            id="editStatus"
+            name="status"
+            class="border border-gray-300 rounded w-full p-2"
+          >
+            <option value="true">On</option>
+            <option value="false">Off</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Save Changes
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Script to show and hide modal -->
+  <script>
+    document
+      .getElementById("addCameraBtn")
+      .addEventListener("click", function () {
+        document.getElementById("cameraModal").classList.remove("hidden");
+      });
+
+    document
+      .getElementById("closeModal")
+      .addEventListener("click", function () {
+        document.getElementById("cameraModal").classList.add("hidden");
+      });
+
+    document
+      .getElementById("closeEditModal")
+      .addEventListener("click", function () {
+        document.getElementById("editCameraModal").classList.add("hidden");
+      });
+
+    function openEditModal(id, location, ipAddress, status, type) {
+      document.getElementById("editLocation").value = location;
+      document.getElementById("editIpAddress").value = ipAddress;
+      document.getElementById("editType").value = type;
+      document.getElementById("editStatus").value = status ? "true" : "false";
+      document.getElementById(
+        "editCameraForm"
+      ).action = `/detection/object-detector/cctv/edit/${id}`;
+      document.getElementById("editCameraModal").classList.remove("hidden");
+    }
+  </script>
 </div>
 {% endblock %}

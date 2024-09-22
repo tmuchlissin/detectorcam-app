@@ -2,7 +2,6 @@ from flask import Flask
 from app.views import main
 from app.detection.views import detection
 from app.chatbot.views import chatbot
-from app.error_pages.handlers import error_pages
 from app.extensions import db, migrate,  csrf
 from config import Config
 import os
@@ -28,6 +27,6 @@ def create_app():
     app.register_blueprint(main)
     app.register_blueprint(detection)
     app.register_blueprint(chatbot)
-    app.register_blueprint(error_pages)
+
     
     return app

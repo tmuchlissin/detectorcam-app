@@ -5,8 +5,12 @@ from app.models import Document
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime 
+import pytz
 
 chatbot = Blueprint('chatbot', __name__)
+
+# Zona waktu Indonesia Barat (WIB)
+wib = pytz.timezone('Asia/Jakarta')
 
 # Fungsi untuk memeriksa apakah file ekstensi diperbolehkan
 ALLOWED_EXTENSIONS = {
@@ -33,27 +37,30 @@ def get_mime_type(filename):
 @chatbot.route('/chatbot/documents', methods=['GET', 'POST'])
 def documents():
     if request.method == 'POST':
-        # Ambil semua file yang diunggah
         files = request.files.getlist('files[]')
         
         if not files or not all(allowed_file(file.filename) for file in files):
             flash('Some files are not allowed or no file uploaded!', 'error')
             return redirect(url_for('chatbot.documents'))
         
-        # Loop untuk memproses setiap file
         for file in files:
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 file_data = file.read()
                 
-                # Simpan data ke database untuk setiap file
-                new_document = Document(title_file=filename, file_data=file_data)
+                # Set waktu dengan zona WIB saat file diunggah
+                new_document = Document(
+                    title_file=filename, 
+                    file_data=file_data, 
+                    created_at=datetime.now(wib),
+                    updated_at=datetime.now(wib)
+                )
                 db.session.add(new_document)
         
         db.session.commit()
         flash('Folder and files uploaded successfully!', 'success')
         return redirect(url_for('chatbot.documents'))
-
+    
     # Ambil nomor halaman dari query string, default ke halaman 1
     page = request.args.get('page', 1, type=int)
     per_page = 10  # Jumlah dokumen per halaman
@@ -106,7 +113,9 @@ def update_file(file_id):
         # Update dokumen dengan file baru
         document.title_file = filename
         document.file_data = file_data
-        document.updated_at = datetime.utcnow()
+
+        # Set waktu dengan zona WIB
+        document.updated_at = datetime.now(wib)
 
         db.session.commit()
 
@@ -115,8 +124,6 @@ def update_file(file_id):
         flash('File not allowed or no file selected!', 'error')
 
     return redirect(url_for('chatbot.documents'))
-
-
 
 @chatbot.route('/chatbot/documents/download/<int:file_id>')
 def download_file(file_id):

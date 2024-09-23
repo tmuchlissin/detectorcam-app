@@ -2,3 +2,4 @@
 migrations/
 .env
 __pycache__
+requirements.txt

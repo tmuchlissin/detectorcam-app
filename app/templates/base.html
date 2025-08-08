@@ -3,207 +3,323 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>QHSE APP</title>
+    <title>Detectorcam</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                50: "#f0f9ff",
+                100: "#e0f2fe",
+                200: "#bae6fd",
+                300: "#7dd3fc",
+                400: "#38bdf8",
+                500: "#0ea5e9",
+                600: "#0284c7",
+                700: "#0369a1",
+                800: "#075985",
+                900: "#0c4a6e",
+              },
+              dark: {
+                50: "#f8fafc",
+                100: "#f1f5f9",
+                200: "#e2e8f0",
+                300: "#cbd5e1",
+                400: "#94a3b8",
+                500: "#64748b",
+                600: "#475569",
+                700: "#334155",
+                800: "#1e293b",
+                900: "#0f172a",
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <!-- Link to External CSS (remove if styles.css is empty) -->
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/styles.css') }}"
     />
     <link
       rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
+    <!-- Favicon -->
     <link
       rel="icon"
       type="image/png"
-      href="{{ url_for('static', filename='img/shield.png') }}"
+      href="{{ url_for('static', filename='img/icon-cam.png') }}"
     />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+      body {
+        font-family: "Inter", sans-serif;
+      }
+
+      .sidebar-gradient {
+        background: linear-gradient(
+          135deg,
+          #1e293b 0%,
+          #334155 50%,
+          #475569 100%
+        );
+      }
+
+      .nav-item {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .nav-item::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 4px;
+        background: linear-gradient(180deg, #0ea5e9, #38bdf8);
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+
+      .nav-item:hover::before {
+        transform: translateX(0);
+      }
+
+      .nav-item:hover {
+        background: rgba(14, 165, 233, 0.1);
+        transform: translateX(4px);
+        transition: background 0.3s ease, transform 0.3s ease;
+      }
+
+      .nav-icon {
+        transition: color 0.3s ease, transform 0.3s ease;
+      }
+
+      .nav-item:hover .nav-icon {
+        color: #0ea5e9;
+        transform: scale(1.1);
+      }
+
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .floating-shadow {
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+          0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      }
+
+      .pulse-effect {
+        animation: pulse-glow 2s infinite;
+      }
+
+      @keyframes pulse-glow {
+        0%,
+        100% {
+          box-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 20px rgba(14, 165, 233, 0.6);
+        }
+      }
+
+      .logo-animation {
+        animation: rotate 10s linear infinite;
+      }
+
+      @keyframes rotate {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .sidebar-brand {
+        background: linear-gradient(45deg, #0ea5e9, #38bdf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .btn-modern {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      }
+    </style>
   </head>
-  <body class="bg-gray-100">
+  <body class="bg-gray-200">
     <!-- Sidebar Layout -->
     <div class="flex">
-      <div
+      <!-- Sidebar -->
+      <aside
         id="sidebar"
-        class="w-80 h-screen bg-cyan-600 text-white flex flex-col transition-all"
+        class="fixed top-0 left-0 z-40 w-72 h-screen transition-all duration-300 -translate-x-full sm:translate-x-0 sidebar-gradient text-white floating-shadow"
+        aria-label="sidebar"
       >
-        <div class="p-5 text-2xl font-semibold text-center">
-          <i class="fas fa-h-square"></i> QHSE APP
+        <div class="w-full h-screen flex flex-col">
+          <!-- Brand Section -->
+          <div class="flex items-center space-x-4 p-4">
+            <div
+              class="flex-shrink-0 w-12 h-12 bg-gradient-to-r from-primary-400 to-primary-600 rounded-xl flex items-center justify-center pulse-effect"
+            >
+              <i class="fas fa-h-square text-2xl logo-animation"></i>
+            </div>
+            <div>
+              <h1 class="text-xl font-bold sidebar-brand">Detectorcam App</h1>
+              <p class="text-sm text-gray-300 mt-1">AI Detection System</p>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <nav class="flex-1 px-4 py-6 space-y-3">
+            <a
+              href="{{ url_for('main.index') }}"
+              class="nav-item block py-4 px-5 rounded-xl flex items-center text-base font-medium hover:shadow-lg group"
+            >
+              <i class="fas fa-chart-pie nav-icon mr-4 text-xl w-6"></i>
+              <span class="group-hover:text-primary-300">Dashboard</span>
+            </a>
+            <a
+              href="{{ url_for('cctv.main_cctv') }}"
+              class="nav-item block py-4 px-5 rounded-xl flex items-center text-base font-medium hover:shadow-lg group"
+            >
+              <i class="fa-solid fa-video nav-icon mr-4 text-xl w-6"></i>
+              <span class="group-hover:text-primary-300">CCTV Monitoring</span>
+            </a>
+            <a
+              href="{{ url_for('detector.main_detector') }}"
+              class="nav-item block py-4 px-5 rounded-xl flex items-center text-base font-medium hover:shadow-lg group"
+            >
+              <i class="fas fa-dharmachakra nav-icon mr-4 text-xl w-6"></i>
+              <span class="group-hover:text-primary-300">AI Detector</span>
+            </a>
+            <a
+              href="{{ url_for('model.setting_model') }}"
+              class="nav-item block py-4 px-5 rounded-xl flex items-center text-base font-medium hover:shadow-lg group"
+            >
+              <i class="fas fa-cog nav-icon mr-4 text-xl w-6"></i>
+              <span class="group-hover:text-primary-300">Model Settings</span>
+            </a>
+          </nav>
+
+          <!-- Footer -->
+          <div class="p-4 border-t border-white/20">
+            <div
+              class="flex items-center justify-center space-x-2 text-sm text-gray-300"
+            >
+              <i class="fas fa-shield-alt"></i>
+              <span>Built with ♥️</span>
+            </div>
+          </div>
         </div>
-        <hr class="border-white-300 mx-4" />
-        <nav class="flex-1 px-4 space-y-2 mt-4">
-          <a
-            href="{{ url_for('main.index') }}"
-            class="block py-3 px-4 rounded-lg bg-cyan-500 hover:bg-cyan-800 transition duration-200 flex items-center text-lg font-semibold mt-5"
-            data-title="Dashboard"
-          >
-            <i class="fas fa-chart-pie mr-2"></i>Dashboard
-          </a>
+      </aside>
 
-          <!-- Detection Dropdown Button with Nested Object Detector -->
-          <div class="relative">
-            <!-- Detection Button -->
-            <button
-              id="detectionButton"
-              onclick="toggleDropdown('dropdownDetectionMenu')"
-              class="block w-full py-3 px-4 rounded-lg bg-cyan-500 hover:bg-cyan-800 transition duration-200 flex items-center text-lg font-semibold mt-5"
-              data-title="Detection"
-              data-level="1"
-            >
-              <i class="fas fa-dharmachakra mr-2"></i> Detection
-              <i class="fas fa-chevron-down ml-auto"></i>
-              <!-- Chevron stays on the right -->
-            </button>
-
-            <!-- Detection Dropdown Menu -->
-            <div id="dropdownDetectionMenu" class="dropdown-menu hidden">
-              <!-- Object Detector as a submenu inside Detection -->
-              <a
-                href="{{ url_for('detection.cctv') }}"
-                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                data-level="2"
-                data-parent="Detection"
-              >
-                <i class="fa-solid fa-video mr-2"></i> CCTV
-              </a>
-              <a
-                href="{{ url_for('detection.report') }}"
-                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                data-level="2"
-                data-parent="Detection"
-              >
-                <i class="fas fa-file-signature mr-2"></i> Report
-              </a>
-              <a
-                href="{{ url_for('detection.contact') }}"
-                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                data-level="2"
-                data-parent="Detection"
-              >
-                <i class="fas fa-tty mr-2"></i> Contact
-              </a>
-
-              <div class="relative">
-                <!-- Object Detector Button -->
-                <button
-                  id="objectDetectorButton"
-                  onclick="toggleDropdown('dropdownObjectDetectorMenu', 'dropdownDetectionMenu')"
-                  class="block w-full py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                  data-title="Object Detector"
-                  data-level="2"
-                  data-parent="Detection"
-                >
-                  <i class="fa-solid fa-desktop mr-2"></i> Detector
-                  <i class="fas fa-chevron-down ml-auto"></i>
-                  <!-- Chevron stays on the right -->
-                </button>
-
-                <!-- Object Detector Dropdown Menu -->
-                <div
-                  id="dropdownObjectDetectorMenu"
-                  class="dropdown-menu hidden"
-                >
-                  <a
-                    href="{{ url_for('detection.ppe') }}"
-                    class="block py-2 px-16 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                    data-level="2"
-                    data-parent="Detection"
-                  >
-                    <i class="fas fa-hard-hat mr-2"></i> PPE
-                  </a>
-                  <a
-                    href="{{ url_for('detection.driver') }}"
-                    class="block py-2 px-16 rhover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                    data-level="2"
-                    data-parent="Detection"
-                  >
-                    <i class="fas fa-truck-moving mr-2"></i> Driver
-                  </a>
-                  <a
-                    href="{{ url_for('detection.danger_condition') }}"
-                    class="block py-2 px-16 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                    data-level="2"
-                    data-parent="Detection"
-                  >
-                    <i class="fas fa-hands-helping mr-2"></i> SOS
-                  </a>
-                  <a
-                    href="{{ url_for('detection.fire') }}"
-                    class="block py-2 px-16 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                    data-level="2"
-                    data-parent="Detection"
-                  >
-                    <i class="fab fa-hotjar mr-3"></i> Fire
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Chatbot with Sub Buttons -->
-          <div class="relative">
-            <!-- Chatbot Button -->
-            <button
-              id="chatbotButton"
-              onclick="toggleDropdown('dropdownChatbotMenu')"
-              class="block w-full py-3 px-4 rounded-lg bg-cyan-500 hover:bg-cyan-800 transition duration-200 flex items-center text-lg font-semibold mt-5"
-              data-title="Chatbot"
-            >
-              <i class="fa-solid fa-robot mr-2"></i> Chatbot
-              <i class="fas fa-chevron-down ml-auto"></i>
-            </button>
-
-            <!-- Chatbot Dropdown Menu -->
-            <div id="dropdownChatbotMenu" class="dropdown-menu hidden">
-              <a
-                href="{{ url_for('chatbot.documents') }}"
-                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                data-level="2"
-                data-parent="Chatbot"
-              >
-                <i class="fas fa-cogs mr-2"></i> Documents
-              </a>
-              <a
-                href="{{ url_for('chatbot.live_chat') }}"
-                class="block py-2 px-10 hover:bg-cyan-800 transition duration-200 flex items-center text-lg mt-2 font-semibold"
-                data-level="2"
-                data-parent="Chatbot"
-              >
-                <i class="fas fa-comments mr-2"></i>Live Chat
-              </a>
-            </div>
-          </div>
-        </nav>
-      </div>
-
-      <div class="flex-1">
+      <!-- Main content -->
+      <div class="flex-1 bg-gray-200 sm:ml-72">
+        <!-- Top Navigation -->
         <nav
-          class="bg-white border-b border-gray-300 px-8 py-5 flex justify-between items-center"
+          class="glass-effect border-b border-white/20 px-8 py-4 sticky top-0 z-30"
         >
-          <button
-            id="toggleSidebarMain"
-            class="text-gray-600 text-2xl focus:outline-none"
-          >
-            <i id="sidebarIconMain" class="fas fa-times"></i>
-          </button>
-
-          <span id="navbarTitle" class="text-lg font-semibold">
-            {{ navbar_title }}
-          </span>
-
-          <div class="flex space-x-4">
-            <a href="#" class="text-gray-600 flex items-center">
-              <i class="fas fa-user mr-2"></i> Profile
-            </a>
-            <a href="#" class="text-gray-600 flex items-center">
-              <i class="fas fa-sign-out-alt mr-2"></i> Logout
-            </a>
+          <div class="flex justify-between items-center">
+            <button
+              id="toggleSidebar"
+              class="sm:hidden text-gray-700 text-2xl p-2 rounded-lg hover:bg-white/50 btn-modern"
+            >
+              <i class="fas fa-bars"></i>
+            </button>
+            <h2
+              id="navbarTitle"
+              class="hidden sm:block text-2xl font-bold text-gray-800"
+            >
+              {{ navbar_title }}
+            </h2>
+            <div class="flex items-center space-x-3">
+              <a
+                href="#"
+                class="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-white/50 rounded-xl btn-modern"
+              >
+                <div
+                  class="w-8 h-8 bg-gradient-to-r from-primary-400 to-primary-600 rounded-lg flex items-center justify-center"
+                >
+                  <i class="fas fa-user text-white text-sm"></i>
+                </div>
+                <span class="hidden md:block font-medium">Profile</span>
+              </a>
+              <a
+                href="#"
+                class="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-red-600 hover:bg-white/50 rounded-xl btn-modern"
+              >
+                <i class="fas fa-sign-out-alt"></i>
+                <span class="hidden md:block font-medium">Logout</span>
+              </a>
+            </div>
           </div>
         </nav>
 
-        <main>{% block content %} {% endblock %}</main>
+        <!-- Main Content Area -->
+        <main class="p-8">
+          <div class="max-w-7xl mx-auto">
+            {% block content %} {% endblock %}
+          </div>
+        </main>
       </div>
     </div>
 
+    <!-- Overlay for mobile -->
+    <div
+      id="sidebar-overlay"
+      class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden sm:hidden"
+    ></div>
+
+    <!-- Enhanced JavaScript -->
+    <script>
+      const toggleBtn = document.getElementById("toggleSidebar");
+      const sidebar = document.getElementById("sidebar");
+      const overlay = document.getElementById("sidebar-overlay");
+
+      function toggleSidebar() {
+        sidebar.classList.toggle("-translate-x-full");
+        overlay.classList.toggle("hidden");
+        document.body.classList.toggle("overflow-hidden");
+      }
+
+      toggleBtn?.addEventListener("click", toggleSidebar);
+      overlay?.addEventListener("click", toggleSidebar);
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth >= 640) {
+          sidebar.classList.remove("-translate-x-full");
+          overlay.classList.add("hidden");
+          document.body.classList.remove("overflow-hidden");
+        }
+      });
+
+      document.documentElement.style.scrollBehavior = "smooth";
+
+      document.querySelectorAll(".nav-item").forEach((item) => {
+        item.addEventListener("click", function () {
+          const icon = this.querySelector(".nav-icon");
+          icon.classList.add("fa-spin");
+          setTimeout(() => icon.classList.remove("fa-spin"), 1000);
+        });
+      });
+    </script>
+
+    <!-- Link to External JS (remove if script.js is empty) -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
   </body>
 </html>

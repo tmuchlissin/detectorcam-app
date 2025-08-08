@@ -1,0 +1,276 @@
+{% extends "base.html" %} {% block content %}
+<div class="p-8">
+  <h2 class="text-2xl font-bold mb-4">Model Settings</h2>
+
+  <!-- Add Model Button -->
+  <button
+    class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
+    id="addModelBtn"
+  >
+    <i class="fas fa-rocket mr-2"></i> Add Model
+  </button>
+
+  <!-- Delete All Button -->
+  <form
+    action="{{ url_for('model.delete_all_models') }}"
+    method="POST"
+    class="inline-block"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <button
+      type="submit"
+      class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-red-700 focus:outline-none"
+      onclick="return confirm('Are you sure you want to delete all models?');"
+    >
+      <i class="fas fa-trash mr-2"></i> Delete All
+    </button>
+  </form>
+
+  <!-- Models Table -->
+  <div
+    class="overflow-x-auto bg-white rounded-xl shadow-lg border border-gray-100 mt-8"
+  >
+    <table class="min-w-full">
+      <thead class="bg-gradient-to-r from-slate-800 to-slate-700">
+        <tr>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-cube text-slate-300"></i>
+              <span>Model Name</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-file text-slate-300"></i>
+              <span>Model File</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-calendar-alt text-slate-300"></i>
+              <span>Date Updated</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-center text-xs font-semibold text-white uppercase tracking-wider"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-cog text-slate-300"></i>
+              <span>Action</span>
+            </div>
+          </th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-100">
+        {% for model in models %}
+        <tr class="hover:bg-gray-50 transition-colors duration-200">
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <span
+              class="inline-flex items-center px-3 py-1 justify-center rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+            >
+              <i class="fas fa-circle w-2 h-2 mr-2"></i>
+              {{ model.model_name }}
+            </span>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div
+              class="text-sm text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded"
+            >
+              {{ model.original_filename }}
+            </div>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="text-sm text-gray-600">{{ model.updated_at }}</div>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="flex items-center justify-center space-x-2">
+              <!-- Edit Button -->
+              <a
+                href="#"
+                class="inline-flex items-center p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md edit-model-btn"
+                data-id="{{ model.id }}"
+                title="Edit Model"
+              >
+                <i class="fas fa-edit w-4 h-4"></i>
+              </a>
+              <!-- Delete Button -->
+              <form
+                action="{{ url_for('model.delete_model', id=model.id) }}"
+                method="POST"
+                class="inline-block"
+                onsubmit="return confirm('Are you sure you want to delete this model?');"
+              >
+                <input
+                  type="hidden"
+                  name="csrf_token"
+                  value="{{ csrf_token() }}"
+                />
+                <button
+                  type="submit"
+                  class="inline-flex items-center p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+                  title="Delete Model"
+                >
+                  <i class="fas fa-trash-alt w-4 h-4"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add Model Modal -->
+  <div
+    id="addModelModal"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden"
+  >
+    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
+      <div class="flex justify-between items-center border-b pb-2 mb-4">
+        <h5 class="text-xl font-bold">Add Model</h5>
+        <button id="closeAddModal" class="text-gray-500 hover:text-gray-700">
+          &times;
+        </button>
+      </div>
+      <form
+        id="addModelForm"
+        method="POST"
+        action="{{ url_for('model.setting_model') }}"
+        enctype="multipart/form-data"
+      >
+        {{ form.hidden_tag() }}
+        <div class="mb-4">
+          <label for="modelName" class="text-sm font-medium text-gray-700"
+            >Model Name</label
+          >
+          {{ form.model_name(class="border border-gray-300 rounded w-full p-2")
+          }}
+        </div>
+        <div class="mb-4">
+          <label for="modelFile" class="text-sm font-medium text-gray-700"
+            >Upload Model File</label
+          >
+          {{ form.model_file(class="border border-gray-300 rounded w-full p-2")
+          }}
+        </div>
+        <button
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200"
+        >
+          Add Model
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Model Modal -->
+  <div
+    id="editModelButton"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden"
+  >
+    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
+      <div class="flex justify-between items-center border-b pb-2 mb-4">
+        <h5 class="text-xl font-bold">Edit Model</h5>
+        <button
+          id="closeEditModelButton"
+          class="text-gray-500 hover:text-gray-700"
+        >
+          &times;
+        </button>
+      </div>
+      <form
+        id="editModelForm"
+        method="POST"
+        action="{{ url_for('model.edit_model', id=0) }}"
+        enctype="multipart/form-data"
+      >
+        {{ form.hidden_tag() }}
+        <div class="mb-4">
+          <label for="modelNameInput" class="text-sm font-medium text-gray-700"
+            >Model Name</label
+          >
+          <input
+            type="text"
+            id="modelNameInput"
+            name="model_name"
+            class="border border-gray-300 rounded w-full p-2"
+            required
+          />
+        </div>
+        <div class="mb-4">
+          <label for="modelFile" class="text-sm font-medium text-gray-700"
+            >Upload New Model File (optional)</label
+          >
+          <input
+            type="file"
+            name="model_file"
+            class="border border-gray-300 rounded w-full p-2"
+          />
+        </div>
+        <button
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200"
+        >
+          Update Model
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Add Model Button
+      document
+        .getElementById("addModelBtn")
+        .addEventListener("click", function () {
+          document.getElementById("addModelModal").classList.remove("hidden");
+        });
+
+      // Close Add Model Modal
+      document
+        .getElementById("closeAddModal")
+        .addEventListener("click", function () {
+          document.getElementById("addModelModal").classList.add("hidden");
+        });
+
+      // Edit Model Buttons
+      document.querySelectorAll(".edit-model-btn").forEach((button) => {
+        button.addEventListener("click", function (event) {
+          event.preventDefault();
+          const modelId = this.getAttribute("data-id");
+
+          // Fetch model data
+          fetch(`/detection/edit_model/${modelId}`)
+            .then((response) => response.json())
+            .then((data) => {
+              document.getElementById("modelNameInput").value = data.model_name;
+              document
+                .getElementById("editModelButton")
+                .classList.remove("hidden");
+              let formAction = document.getElementById("editModelForm").action;
+              formAction = formAction.replace(/0$/, modelId);
+              document.getElementById("editModelForm").action = formAction;
+            })
+            .catch((error) => {
+              console.error("Error fetching model data:", error);
+            });
+        });
+      });
+
+      // Close Edit Model Modal
+      document
+        .getElementById("closeEditModelButton")
+        .addEventListener("click", function () {
+          document.getElementById("editModelButton").classList.add("hidden");
+        });
+    });
+  </script>
+</div>
+{% endblock %}

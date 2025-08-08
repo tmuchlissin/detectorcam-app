@@ -1,17 +1,21 @@
 {% extends "base.html" %} {% block content %}
 <div class="p-8">
-  <!-- Kontainer baru untuk membungkus h1 dan card -->
-  <div class="max-w-full mx-auto">
-    <h1 class="text-2xl font-bold mb-4">Dashboard Overview</h1>
-    <div class="flex justify-between space-x-4 p-6">
-      {% for card in cards %}
-      <div
-        class="bg-{{ card.bg_color }} text-white w-full h-32 flex flex-col items-center justify-center rounded-lg shadow-lg"
-      >
-        <h2 class="text-lg font-extrabold mb-2">{{ card.title }}</h2>
-        <p>{{ card.content }}</p>
+  <h1 class="text-2xl font-bold mb-4">Dashboard Overview</h1>
+  <!-- Coming Soon Message -->
+  <div class="py-8 flex justify-center">
+    <div class="text-center">
+      <div class="flex justify-center mb-6">
+        <div
+          class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg animate-pulse"
+        >
+          <i class="fas fa-rocket"></i>
+        </div>
       </div>
-      {% endfor %}
+      <h2 class="text-2xl font-semibold text-gray-800 mb-2">Coming Soon!</h2>
+      <p class="text-gray-600 text-sm mb-6">
+        We're currently building the dashboard. Stay tuned for insights,
+        analytics, and data visualizations!
+      </p>
     </div>
   </div>
 </div>

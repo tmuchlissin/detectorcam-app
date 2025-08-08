@@ -1,15 +1,14 @@
 {% extends "base.html" %} {% block content %}
 <div class="p-8">
-  <h2 class="text-2xl font-bold mb-4">CCTV Cameras</h2>
+  <h2 class="text-2xl font-bold mb-4">CCTV Camera</h2>
   <button
     class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
     id="addCameraBtn"
   >
     <i class="fas fa-camera mr-2"></i> Add Camera
   </button>
-  <!-- Tombol Delete All -->
   <form
-    action="{{ url_for('detection.delete_all_cameras') }}"
+    action="{{ url_for('cctv.delete_all_cameras') }}"
     method="POST"
     style="display: inline-block"
   >
@@ -17,68 +16,165 @@
     <button
       type="submit"
       class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-red-700 focus:outline-none"
-      onclick="return confirm('Are you sure you want to delete all cctv cameras?');"
+      onclick="return confirm('Are you sure you want to delete all CCTV cameras?');"
     >
       <i class="fas fa-trash mr-2"></i> Delete All
     </button>
   </form>
-  <div class="overflow-x-auto">
-    <table class="min-w-full bg-white border border-gray-200 mt-4">
-      <thead>
-        <tr class="bg-gray-200 text-gray-600">
-          <th class="py-2 px-4 border">ID</th>
-          <th class="py-2 px-4 border">Location</th>
-          <th class="py-2 px-4 border">IP Address</th>
-          <th class="py-2 px-4 border">Type</th>
-          <th class="py-2 px-4 border">Status</th>
-          <th class="py-2 px-4 border">Action</th>
+  <div
+    class="overflow-x-auto bg-white rounded-xl shadow-lg border border-gray-100 mt-8"
+  >
+    <table class="min-w-full">
+      <thead class="bg-gradient-to-r from-slate-800 to-slate-700">
+        <tr>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600 last:border-r-0"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-hashtag text-slate-300"></i>
+              <span>ID</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600 last:border-r-0"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-map-marker-alt text-slate-300"></i>
+              <span>Location</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600 last:border-r-0"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-network-wired text-slate-300"></i>
+              <span>IP Address</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600 last:border-r-0"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-tag text-slate-300"></i>
+              <span>Type</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600 last:border-r-0"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-signal text-slate-300"></i>
+              <span>Status</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-center text-xs font-semibold text-white uppercase tracking-wider"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-cog text-slate-300"></i>
+              <span>Action</span>
+            </div>
+          </th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="bg-white divide-y divide-gray-100">
         {% for camera in cameras %}
-        <tr class="border-b text-center">
-          <td class="py-2 px-4">{{ camera.id }}</td>
-          <td class="py-2 px-4">{{ camera.location }}</td>
-          <td class="py-2 px-4">{{ camera.ip_address }}</td>
-          <td class="py-2 px-4">{{ camera.type }}</td>
-          <td class="py-2 px-4">{{ 'On' if camera.status else 'Off' }}</td>
-          <td class="py-2 px-4">
-            <button
-              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 mr-2"
-              onclick="openEditModal({{ camera.id }}, '{{ camera.location }}', '{{ camera.ip_address }}', {{ camera.status|tojson }}, '{{ camera.type }}')"
-              title="Edit Camera"
+        <tr class="hover:bg-gray-50 transition-colors duration-200">
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="flex items-center justify-center">
+              <div
+                class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg"
+              >
+                {{ camera.id }}
+              </div>
+            </div>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="text-sm font-medium text-gray-900">
+              {{ camera.location }}
+            </div>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div
+              class="text-sm text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded"
             >
-              <i class="fas fa-edit"></i>
-            </button>
+              {{ camera.ip_address }}
+            </div>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {% if camera.type == 'Parking Area' %}bg-purple-100 text-purple-800 {% elif camera.type == 'Main Room' %}bg-blue-100 text-blue-800 {% elif camera.type == 'Entrance' %}bg-green-100 text-green-800 {% elif camera.type == 'Droid Cam' %}bg-orange-100 text-orange-800 {% else %}bg-gray-100 text-gray-800{% endif %}"
+            >
+              <i class="fas fa-circle w-2 h-2 mr-2"></i>
+              {{ camera.type }}
+            </span>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            {% if camera.status %}
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+            >
+              <div
+                class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"
+              ></div>
+              Online
+            </span>
+            {% else %}
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"
+            >
+              <div class="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
+              Offline
+            </span>
+            {% endif %}
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="flex items-center justify-center space-x-2">
+              <!-- View Button -->
+              <form
+                action="{{ url_for('cctv.view_camera', id=camera.id) }}"
+                method="GET"
+                class="inline-block"
+              >
+                <button
+                  type="submit"
+                  class="inline-flex items-center p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+                  title="View Camera"
+                >
+                  <i class="fas fa-eye w-4 h-4"></i>
+                </button>
+              </form>
 
-            <form
-              action="{{ url_for('detection.view_camera', id=camera.id) }}"
-              method="GET"
-              class="inline-block"
-            >
+              <!-- Edit Button -->
               <button
-                type="submit"
-                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 mr-2"
-                title="View Camera"
+                onclick="openEditModal({{ camera.id }}, '{{ camera.location }}', '{{ camera.ip_address }}', {{ camera.status|tojson }}, '{{ camera.type }}')"
+                class="inline-flex items-center p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+                title="Edit Camera"
               >
-                <i class="fas fa-eye"></i>
+                <i class="fas fa-edit w-4 h-4"></i>
               </button>
-            </form>
-            <form
-              action="{{ url_for('detection.delete_camera', id=camera.id) }}"
-              method="POST"
-              class="inline-block"
-              onclick="return confirm('Are you sure you want to delete this cctv camera?');"
-            >
-              {{ form.hidden_tag() }}
-              <button
-                type="submit"
-                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 mr-2"
-                title="Delete Camera"
+
+              <!-- Delete Button -->
+              <form
+                action="{{ url_for('cctv.delete_camera', id=camera.id) }}"
+                method="POST"
+                class="inline-block"
+                onclick="return confirm('Are you sure you want to delete this CCTV camera?');"
               >
-                <i class="fas fa-trash-alt"></i>
-              </button>
-            </form>
+                <input
+                  type="hidden"
+                  name="csrf_token"
+                  value="{{ csrf_token() }}"
+                />
+                <button
+                  type="submit"
+                  class="inline-flex items-center p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+                  title="Delete Camera"
+                >
+                  <i class="fas fa-trash-alt w-4 h-4"></i>
+                </button>
+              </form>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -100,29 +196,42 @@
           &times;
         </button>
       </div>
-      <form method="POST">
+      <form method="POST" action="{{ url_for('cctv.main_cctv') }}">
         {{ form.hidden_tag() }}
         <div class="mb-4">
           {{ form.location.label(class='text-gray-700') }} {{
           form.location(size=32, class='border border-gray-300 rounded w-full
-          p-2') }} {% for error in form.location.errors %}<span
-            class="text-red-500"
-            >{{ error }}</span
-          >{% endfor %}
+          p-2') }} {% for error in form.location.errors %}
+          <span class="text-red-500">{{ error }}</span>
+          {% endfor %}
         </div>
         <div class="mb-4">
           {{ form.ip_address.label(class='text-gray-700') }} {{
           form.ip_address(size=32, class='border border-gray-300 rounded w-full
-          p-2', placeholder="http://xxx.xxx.xxx.xxx") }} {% for error in
-          form.ip_address.errors %}<span class="text-red-500">{{ error }}</span
-          >{% endfor %}
+          p-2', placeholder="http://xxx.xxx.xxx.xxx[:port]/video") }} {% for
+          error in form.ip_address.errors %}
+          <span class="text-red-500">{{ error }}</span>
+          {% endfor %}
         </div>
         <div class="mb-4">
           {{ form.type.label(class='text-gray-700') }} {{
           form.type(class='border border-gray-300 rounded w-full p-2') }} {% for
-          error in form.type.errors %}<span class="text-red-500"
-            >{{ error }}</span
-          >{% endfor %}
+          error in form.type.errors %}
+          <span class="text-red-500">{{ error }}</span>
+          {% endfor %}
+        </div>
+        <div class="mb-4">
+          <label for="add_status" class="block text-gray-700"
+            >Status (On/Off)</label
+          >
+          <select
+            id="add_status"
+            name="status"
+            class="border border-gray-300 rounded w-full p-2"
+          >
+            <option value="true">On</option>
+            <option value="false">Off</option>
+          </select>
         </div>
         <button
           type="submit"
@@ -149,7 +258,7 @@
       <form id="editCameraForm" method="POST" action="">
         {{ form.hidden_tag() }}
         <div class="mb-4">
-          <label for="editLocation">Location</label>
+          <label for="editLocation" class="block text-gray-700">Location</label>
           <input
             type="text"
             id="editLocation"
@@ -159,7 +268,9 @@
           />
         </div>
         <div class="mb-4">
-          <label for="editIpAddress">IP Address</label>
+          <label for="editIpAddress" class="block text-gray-700"
+            >IP Address</label
+          >
           <input
             type="text"
             id="editIpAddress"
@@ -169,17 +280,21 @@
           />
         </div>
         <div class="mb-4">
-          <label for="editType">Type</label>
-          <input
-            type="text"
+          <label for="editType" class="block text-gray-700">Type</label>
+          <select
             id="editType"
             name="type"
             class="border border-gray-300 rounded w-full p-2"
             required
-          />
+          >
+            <option value="Parking Area">Parking Area</option>
+            <option value="Main Room">Main Room</option>
+            <option value="Entrance">Entrance</option>
+            <option value="Droid Cam">Droid Cam</option>
+          </select>
         </div>
         <div class="mb-4">
-          <label for="editStatus">Status</label>
+          <label for="editStatus" class="block text-gray-700">Status</label>
           <select
             id="editStatus"
             name="status"
@@ -199,7 +314,6 @@
     </div>
   </div>
 
-  <!-- Script to show and hide modal -->
   <script>
     document
       .getElementById("addCameraBtn")
@@ -224,11 +338,29 @@
       document.getElementById("editIpAddress").value = ipAddress;
       document.getElementById("editType").value = type;
       document.getElementById("editStatus").value = status ? "true" : "false";
-      document.getElementById(
-        "editCameraForm"
-      ).action = `/detection/object-detector/cctv/edit/${id}`;
+      document.getElementById("editCameraForm").action = `/cctv/edit/${id}`;
       document.getElementById("editCameraModal").classList.remove("hidden");
     }
+
+    document
+      .getElementById("editCameraForm")
+      .addEventListener("submit", function (event) {
+        event.preventDefault();
+        const form = this;
+        fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: {
+            "X-CSRFToken": "{{ csrf_token() }}",
+          },
+        }).then((response) => {
+          if (response.ok) {
+            window.location.href = "{{ url_for('cctv.main_cctv') }}";
+          } else {
+            alert("Error updating camera. Please try again.");
+          }
+        });
+      });
   </script>
 </div>
 {% endblock %}

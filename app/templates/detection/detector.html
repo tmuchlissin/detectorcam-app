@@ -1,0 +1,361 @@
+{% extends "base.html" %} {% block content %}
+<div class="p-8">
+  <h2 class="text-2xl font-bold mb-4">AI Detector</h2>
+
+  <button
+    class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
+    id="addDetectorBtn"
+  >
+    <i class="fas fa-object-group mr-2"></i> Add Detector
+  </button>
+
+  <form
+    action="{{ url_for('detector.delete_all_detectors') }}"
+    method="POST"
+    style="display: inline-block"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <button
+      type="submit"
+      class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-red-700 focus:outline-none"
+      onclick="return confirm('Are you sure you want to delete all detectors?');"
+    >
+      <i class="fas fa-trash mr-2"></i> Delete All
+    </button>
+  </form>
+
+  <div
+    class="overflow-x-auto bg-white rounded-xl shadow-lg border border-gray-100 mt-8"
+  >
+    <table class="min-w-full">
+      <thead class="bg-gradient-to-r from-slate-800 to-slate-700">
+        <tr>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-hashtag text-slate-300"></i>
+              <span>ID</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-camera text-slate-300"></i>
+              <span>Camera</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-cube text-slate-300"></i>
+              <span>Model</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-calendar-alt text-slate-300"></i>
+              <span>Date Updated</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-slate-600"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-signal text-slate-300"></i>
+              <span>Running</span>
+            </div>
+          </th>
+          <th
+            class="py-4 px-6 text-center text-xs font-semibold text-white uppercase tracking-wider"
+          >
+            <div class="flex items-center justify-center space-x-2">
+              <i class="fas fa-cog text-slate-300"></i>
+              <span>Action</span>
+            </div>
+          </th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-100">
+        {% for detector in detectors %}
+        <tr class="hover:bg-gray-50 transition-colors duration-200">
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="flex items-center justify-center">
+              <div
+                class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg"
+              >
+                {{ detector.id }}
+              </div>
+            </div>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="text-sm font-medium text-gray-900">
+              {{ detector.camera.location }}
+            </div>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+            >
+              <i class="fas fa-circle w-2 h-2 mr-2"></i>
+              {{ detector.model.model_name }}
+            </span>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="text-sm text-gray-600">{{ detector.updated_at }}</div>
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            {% if detector.running %}
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+            >
+              <div
+                class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"
+              ></div>
+              On
+            </span>
+            {% else %}
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"
+            >
+              <div class="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
+              Off
+            </span>
+            {% endif %}
+          </td>
+          <td class="py-4 px-6 whitespace-nowrap text-center">
+            <div class="flex items-center justify-center space-x-2">
+              <!-- View Button -->
+              <form
+                action="{{ url_for('detector.view_detector', id=detector.id) }}"
+                method="GET"
+                class="inline-block"
+              >
+                <button
+                  type="submit"
+                  class="inline-flex items-center p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+                  title="View Detector"
+                >
+                  <i class="fas fa-eye w-4 h-4"></i>
+                </button>
+              </form>
+              <!-- Edit Button -->
+              <button
+                onclick="openEditModal({{ detector.id }}, {{ detector.camera_id }}, {{ detector.model_id }}, {{ detector.running|tojson }})"
+                class="inline-flex items-center p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+                title="Edit Detector"
+              >
+                <i class="fas fa-edit w-4 h-4"></i>
+              </button>
+              <!-- Delete Button -->
+              <form
+                action="{{ url_for('detector.delete_detector', id=detector.id) }}"
+                method="POST"
+                class="inline-block"
+                onsubmit="return confirm('Are you sure you want to delete this detector?');"
+              >
+                <input
+                  type="hidden"
+                  name="csrf_token"
+                  value="{{ csrf_token() }}"
+                />
+                <button
+                  type="submit"
+                  class="inline-flex items-center p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
+                  title="Delete Detector"
+                >
+                  <i class="fas fa-trash-alt w-4 h-4"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add Detector Modal -->
+  <div
+    id="addDetectorModal"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden"
+  >
+    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
+      <div class="flex justify-between items-center border-b pb-2 mb-4">
+        <h5 class="text-xl font-bold">Add Detector</h5>
+        <button id="closeAddModal" class="text-gray-500 hover:text-gray-700">
+          &times;
+        </button>
+      </div>
+      <form
+        id="addDetectorForm"
+        method="POST"
+        action="{{ url_for('detector.main_detector') }}"
+      >
+        {{ form.hidden_tag() }}
+        <div class="mb-4">
+          <label for="add_camera_id" class="block text-gray-700">Camera</label>
+          <select
+            id="add_camera_id"
+            name="camera_id"
+            class="border border-gray-300 rounded w-full p-2 focus:ring focus:ring-blue-500"
+            required
+          >
+            <option value="" disabled selected>Select Camera ID</option>
+            {% for camera in cameras %}
+            <option value="{{ camera.id }}">{{ camera.id }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-4">
+          <label for="add_model_id" class="block text-gray-700">Model</label>
+          <select
+            id="add_model_id"
+            name="model_id"
+            class="border border-gray-300 rounded w-full p-2 focus:ring focus:ring-blue-500"
+            required
+          >
+            <option value="" disabled selected>Select a Model</option>
+            {% for model in models %}
+            <option value="{{ model.id }}">{{ model.model_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-4">
+          <label for="add_running" class="block text-gray-700"
+            >Status (On/Off)</label
+          >
+          <select
+            id="add_running"
+            name="running"
+            class="border border-gray-300 rounded w-full p-2"
+          >
+            <option value="true">On</option>
+            <option value="false">Off</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition duration-200"
+        >
+          Add Detector
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Detector Modal -->
+  <div
+    id="editDetectorModal"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden"
+  >
+    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
+      <div class="flex justify-between items-center border-b pb-2 mb-4">
+        <h5 class="text-xl font-bold">Edit Detector</h5>
+        <button id="closeEditModal" class="text-gray-500 hover:text-gray-700">
+          &times;
+        </button>
+      </div>
+      <form id="editDetectorForm" method="POST" action="">
+        {{ form.hidden_tag() }}
+        <div class="mb-4">
+          <label for="edit_camera_id" class="block text-gray-700">Camera</label>
+          <select
+            id="edit_camera_id"
+            name="camera_id"
+            class="border border-gray-300 rounded w-full p-2 focus:ring focus:ring-blue-500"
+            required
+          >
+            <option value="" disabled>Select a Camera</option>
+            {% for camera in cameras %}
+            <option value="{{ camera.id }}">{{ camera.location }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-4">
+          <label for="edit_model_id" class="block text-gray-700">Model</label>
+          <select
+            id="edit_model_id"
+            name="model_id"
+            class="border border-gray-300 rounded w-full p-2 focus:ring focus:ring-blue-500"
+            required
+          >
+            <option value="" disabled>Select a Model</option>
+            {% for model in models %}
+            <option value="{{ model.id }}">{{ model.model_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-4">
+          <label for="edit_running" class="block text-gray-700"
+            >Status (On/Off)</label
+          >
+          <select
+            id="edit_running"
+            name="running"
+            class="border border-gray-300 rounded w-full p-2"
+          >
+            <option value="true">On</option>
+            <option value="false">Off</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition duration-200"
+        >
+          Update Detector
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openEditModal(id, cameraId, modelId, running) {
+      document.getElementById("editDetectorModal").classList.remove("hidden");
+      document.getElementById("edit_camera_id").value = cameraId;
+      document.getElementById("edit_model_id").value = modelId;
+      document.getElementById("edit_running").value = running
+        ? "true"
+        : "false";
+      document.getElementById(
+        "editDetectorForm"
+      ).action = `/detector/edit_detector/${id}`;
+    }
+
+    document.getElementById("closeAddModal").onclick = function () {
+      document.getElementById("addDetectorModal").classList.add("hidden");
+    };
+    document.getElementById("closeEditModal").onclick = function () {
+      document.getElementById("editDetectorModal").classList.add("hidden");
+    };
+    document.getElementById("addDetectorBtn").onclick = function () {
+      document.getElementById("addDetectorModal").classList.remove("hidden");
+    };
+
+    document
+      .getElementById("editDetectorForm")
+      .addEventListener("submit", function (event) {
+        event.preventDefault();
+        const form = this;
+        fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: {
+            "X-CSRFToken": "{{ csrf_token() }}",
+          },
+        }).then((response) => {
+          if (response.ok) {
+            // Arahkan ke halaman detector.html
+            window.location.href = "{{ url_for('detector.main_detector') }}";
+          } else {
+            alert("Error updating detector. Please try again.");
+          }
+        });
+      });
+  </script>
+</div>
+{% endblock %}

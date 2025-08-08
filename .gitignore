@@ -3,3 +3,4 @@ migrations/
 .env
 __pycache__
 requirements.txt
+detector.log

@@ -78,90 +78,83 @@ def stream_camera(id):
     if not camera.status:
         return "Camera is off", 400
 
+    consumer_id = f"cctv_{id}_{int(time.time())}"  # Unique consumer ID
+    
+    # Cleanup and get stream
     camera_stream_manager.cleanup_dead_streams()
-    camera_stream = camera_stream_manager.get_camera_stream(camera.ip_address)
-
+    camera_stream = camera_stream_manager.get_camera_stream(camera.ip_address, consumer_id)
+    
+    if camera_stream is None:
+        logger.warning(f"Could not get camera stream for {camera.ip_address}, trying force restart")
+        camera_stream = camera_stream_manager.force_restart_stream(camera.ip_address, consumer_id)
+    
     if camera_stream is None:
         return "Stream not available", 500
 
-    def generate_frames(camera_stream, app, camera_id):
+    def generate_frames(camera_stream, app, camera_id, camera_ip, consumer_id):
         frame_count = 0
         max_empty_frames = 150
         empty_frame_count = 0
 
-        # --- TAMBAHAN: Variabel untuk menghitung FPS ---
+        # Variabel untuk menghitung FPS
         fps = 0
         frame_counter_for_fps = 0
         start_time = time.time()
-        # -----------------------------------------------
 
-        while True:
-            try:
-                if frame_count % 30 == 0:
-                    with app.app_context():
-                        current_camera = Camera.query.get(camera_id)
-                        if not current_camera or not current_camera.status:
-                            logger.info(f"Camera {camera_id} became inactive during streaming")
+        logger.info(f"Starting CCTV frame generation for camera {camera_id} ({camera_ip}) - Consumer: {consumer_id}")
+
+        try:
+            while True:
+                try:
+                    # Check camera status every 30 frames
+                    if frame_count % 30 == 0:
+                        with app.app_context():
+                            current_camera = Camera.query.get(camera_id)
+                            if not current_camera or not current_camera.status:
+                                logger.info(f"Camera {camera_id} became inactive during CCTV streaming")
+                                break
+
+                    frame = camera_stream.get_frame()
+                    if frame is not None:
+                        empty_frame_count = 0
+
+                        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                        if ret:
+                            yield (b'--frame\r\n'
+                                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+                        else:
+                            logger.warning(f"Failed to encode frame for camera {camera_id}")
+                    else:
+                        empty_frame_count += 1
+                        if empty_frame_count >= max_empty_frames:
+                            logger.warning(f"Too many empty frames for camera {camera_id}, stopping stream")
                             break
 
-                frame = camera_stream.get_frame()
-                if frame is not None:
-                    empty_frame_count = 0
+                    frame_count += 1
+                    time.sleep(0.033)  # ~30 FPS
+
+                except GeneratorExit:
+                    logger.info(f"Client disconnected from camera {camera_id} CCTV stream")
+                    break
+                except Exception as e:
+                    logger.error(f"Error in CCTV frame generation for camera {camera_id}: {e}")
+                    break
                     
-                    # --- MODIFIKASI: Logika untuk menghitung dan menggambar FPS di KANAN ATAS ---
-                    frame_counter_for_fps += 1
-                    if frame_counter_for_fps % 30 == 0:
-                        end_time = time.time()
-                        elapsed_time = end_time - start_time
-                        fps = frame_counter_for_fps / elapsed_time
-                        frame_counter_for_fps = 0
-                        start_time = time.time()
-                    
-                    # Siapkan properti teks dan font
-                    text = f"FPS: {fps:.2f}"
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    font_scale = 0.7
-                    font_thickness = 2
-                    color = (0, 255, 0) # Warna Hijau
-
-                    # Dapatkan ukuran teks untuk penempatan dinamis
-                    (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, font_thickness)
-                    
-                    # Hitung posisi agar berada di pojok kanan atas
-                    # Posisi X = Lebar Frame - Lebar Teks - Margin Kanan (10px)
-                    # Posisi Y = Margin Atas (30px)
-                    position = (frame.shape[1] - text_width - 10, 30)
-
-                    # Tulis teks FPS di frame video
-                    cv2.putText(frame, text, position, font, font_scale, color, font_thickness)
-                    # -------------------------------------------------------------
-
-                    ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-                    if ret:
-                        yield (b'--frame\r\n'
-                               b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-                    else:
-                        logger.warning(f"Failed to encode frame for camera {camera_id}")
-                else:
-                    # ... (logika empty frame tetap sama) ...
-                    empty_frame_count += 1
-                    if empty_frame_count >= max_empty_frames:
-                        logger.warning(f"Too many empty frames for camera {camera_id}, stopping stream")
-                        break
-
-                frame_count += 1
-                time.sleep(0.033)
-
-            except GeneratorExit:
-                logger.info(f"Client disconnected from camera {id} stream")
-                break
-            except Exception as e:
-                logger.error(f"Error in frame generation for camera {id}: {e}")
-                break
+        except Exception as e:
+            logger.error(f"Unexpected error in CCTV stream for camera {camera_id}: {e}")
+        finally:
+            # Release camera stream consumer
+            logger.info(f"Releasing CCTV stream consumer {consumer_id} for camera {camera_id}")
+            camera_stream_manager.release_stream(camera_ip, consumer_id)
 
     return Response(
-        generate_frames(camera_stream, current_app._get_current_object(), id),
-        mimetype='multipart/x-mixed-replace; boundary=frame'
+        generate_frames(camera_stream, current_app._get_current_object(), id, camera.ip_address, consumer_id),
+        mimetype='multipart/x-mixed-replace; boundary=frame',
+        headers={
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
     )
     
 @cctv.route('/delete/<int:id>', methods=['POST'])

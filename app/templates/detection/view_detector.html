@@ -3,7 +3,6 @@
   <h2 class="text-2xl font-bold text-slate-800 mb-4 flex-shrink-0">
     View Detector Stream
   </h2>
-
   <div class="h-full flex flex-col">
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
       <div class="lg:col-span-2 bg-black rounded-xl flex flex-col p-2">
@@ -12,7 +11,7 @@
           class="relative overflow-hidden rounded-lg w-full h-full"
           id="stream-container"
         >
-          <!-- PERBAIKAN: Ganti URL dari view_detector ke stream_detector -->
+          <!-- Stream Video -->
           <img
             src="{{ url_for('detector.stream_detector', id=detector.id) }}"
             alt="Detector Stream"
@@ -20,6 +19,7 @@
             id="camera-stream"
           />
 
+          <!-- Live Indicator -->
           <div
             class="absolute top-3 left-3 flex items-center bg-red-600 text-white px-2.5 py-0.5 rounded-md text-xs font-bold z-10"
           >
@@ -29,6 +29,32 @@
             LIVE
           </div>
 
+          <!-- FPS and Performance Info Overlay -->
+          <div
+            class="absolute top-3 right-3 bg-black/70 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-mono z-10"
+            id="fps-overlay"
+          >
+            <div class="flex flex-col gap-1">
+              <div class="flex justify-between gap-3">
+                <span class="text-slate-300">FPS:</span>
+                <span class="text-green-400 font-bold" id="fps-value">0.0</span>
+              </div>
+              <div class="flex justify-between gap-3">
+                <span class="text-slate-300">Inference:</span>
+                <span class="text-blue-400 font-bold" id="inference-value"
+                  >0.0ms</span
+                >
+              </div>
+              <div class="flex justify-between gap-3">
+                <span class="text-slate-300">Objects:</span>
+                <span class="text-orange-400 font-bold" id="detections-value"
+                  >0</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Loading Indicator -->
           <div
             id="loading-indicator"
             class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm hidden"
@@ -37,6 +63,8 @@
               class="animate-spin rounded-full h-10 w-10 border-2 border-white/50 border-t-white"
             ></div>
           </div>
+
+          <!-- Error Message -->
           <div
             id="error-message"
             class="absolute inset-0 flex items-center justify-center hidden"
@@ -102,8 +130,53 @@
           </div>
         </div>
 
+        <!-- Performance Statistics -->
+        {% if detector.running and detector.camera.status %}
         <hr class="border-slate-200/80" />
+        <div>
+          <h4 class="text-sm font-semibold text-slate-800 mb-3">Performance</h4>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Current FPS</span>
+              <span class="font-bold text-green-600 font-mono" id="sidebar-fps"
+                >0.0</span
+              >
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Avg Inference</span>
+              <span
+                class="font-bold text-blue-600 font-mono"
+                id="sidebar-inference"
+                >0.0ms</span
+              >
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Objects Detected</span>
+              <span
+                class="font-bold text-orange-600 font-mono"
+                id="sidebar-detections"
+                >0</span
+              >
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-500">Status</span>
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-2 h-2 rounded-full bg-green-500 animate-pulse"
+                  id="status-indicator"
+                ></div>
+                <span
+                  class="text-xs text-slate-600 font-medium"
+                  id="status-text"
+                  >Active</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
 
+        <hr class="border-slate-200/80" />
         <div class="flex flex-col gap-3">
           {% if detector.running and detector.camera.status %}
           <div class="grid grid-cols-2 gap-3">
@@ -152,7 +225,6 @@
             Try clicking refresh if stream video does not appear directly
           </p>
           {% endif %}
-
           <a
             href="{{ url_for('detector.main_detector') }}"
             class="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-700 hover:shadow-md hover:shadow-blue-500/30"
@@ -180,6 +252,9 @@
 </div>
 
 <script>
+  const DETECTOR_ID = {{ detector.id }};
+  let fpsUpdateInterval;
+
   document.addEventListener("DOMContentLoaded", function () {
     const streamImg = document.getElementById("camera-stream");
     const streamContainer = document.getElementById("stream-container");
@@ -194,16 +269,92 @@
         if (loadingIndicator) loadingIndicator.classList.add("hidden");
         if (errorMessage) errorMessage.classList.add("hidden");
         streamImg.style.opacity = "1";
+
+        // Start FPS updates when stream loads successfully
+        startFPSUpdates();
       };
 
       streamImg.onerror = function () {
         if (loadingIndicator) loadingIndicator.classList.add("hidden");
         if (errorMessage) errorMessage.classList.remove("hidden");
         streamImg.style.opacity = "0";
+
+        // Stop FPS updates on error
+        stopFPSUpdates();
+
         setTimeout(() => refreshStream(true), 5000); // Retry after 5s
       };
     }
   });
+
+  function startFPSUpdates() {
+    // Stop any existing interval
+    stopFPSUpdates();
+
+    // Update FPS info immediately
+    updateFPSInfo();
+
+    // Update every second
+    fpsUpdateInterval = setInterval(updateFPSInfo, 1000);
+  }
+
+  function stopFPSUpdates() {
+    if (fpsUpdateInterval) {
+      clearInterval(fpsUpdateInterval);
+      fpsUpdateInterval = null;
+    }
+  }
+
+  function updateFPSInfo() {
+    fetch(`{{ url_for('detector.get_fps_info', id=detector.id) }}`)
+      .then(response => response.json())
+      .then(data => {
+        // Update overlay
+        const fpsValue = document.getElementById('fps-value');
+        const inferenceValue = document.getElementById('inference-value');
+        const detectionsValue = document.getElementById('detections-value');
+
+        if (fpsValue) fpsValue.textContent = data.fps.toFixed(1);
+        if (inferenceValue) inferenceValue.textContent = data.inference_time.toFixed(1) + 'ms';
+        if (detectionsValue) detectionsValue.textContent = data.detections;
+
+        // Update sidebar
+        const sidebarFps = document.getElementById('sidebar-fps');
+        const sidebarInference = document.getElementById('sidebar-inference');
+        const sidebarDetections = document.getElementById('sidebar-detections');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+
+        if (sidebarFps) sidebarFps.textContent = data.fps.toFixed(1);
+        if (sidebarInference) sidebarInference.textContent = data.inference_time.toFixed(1) + 'ms';
+        if (sidebarDetections) sidebarDetections.textContent = data.detections;
+
+        // Update status based on FPS
+        if (statusIndicator && statusText) {
+          if (data.fps > 0) {
+            statusIndicator.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
+            statusText.textContent = 'Active';
+            statusText.className = 'text-xs text-green-600 font-medium';
+          } else {
+            statusIndicator.className = 'w-2 h-2 rounded-full bg-yellow-500';
+            statusText.textContent = 'Initializing...';
+            statusText.className = 'text-xs text-yellow-600 font-medium';
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching FPS info:', error);
+        // Update status to show error
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+
+        if (statusIndicator && statusText) {
+          statusIndicator.className = 'w-2 h-2 rounded-full bg-red-500';
+          statusText.textContent = 'Connection Error';
+          statusText.className = 'text-xs text-red-600 font-medium';
+        }
+      });
+  }
 
   function refreshStream(isRetry = false) {
     const streamImg = document.getElementById("camera-stream");
@@ -213,9 +364,12 @@
     if (streamImg) {
       if (loadingIndicator) loadingIndicator.classList.remove("hidden");
       if (errorMessage) errorMessage.classList.add("hidden");
-      // PERBAIKAN: Ubah cara refresh untuk menggunakan URL stream_detector
-      const baseUrl =
-        "{{ url_for('detector.stream_detector', id=detector.id) }}";
+
+      // Stop FPS updates during refresh
+      stopFPSUpdates();
+
+      // Refresh stream URL
+      const baseUrl = "{{ url_for('detector.stream_detector', id=detector.id) }}";
       streamImg.src = baseUrl + "?" + new Date().getTime();
     }
   }
@@ -225,9 +379,7 @@
     if (streamContainer) {
       if (!document.fullscreenElement) {
         streamContainer.requestFullscreen().catch((err) => {
-          console.error(
-            `Error attempting to enable fullscreen: ${err.message}`
-          );
+          console.error(`Error attempting to enable fullscreen: ${err.message}`);
         });
       } else {
         document.exitFullscreen();
@@ -242,6 +394,10 @@
       refreshStream();
     }
   }, 30 * 60 * 1000);
-</script>
 
+  // Cleanup when leaving page
+  window.addEventListener('beforeunload', function() {
+    stopFPSUpdates();
+  });
+</script>
 {% endblock %}

@@ -9,7 +9,7 @@ class CameraForm(FlaskForm):
     ip_address = StringField('IP Address', validators=[DataRequired()])
     status = BooleanField('Status (On/Off)', default=False)
     type = SelectField(
-        'Camera Type',
+        'CCTV Type',
         choices=[('Parking Area', 'Parking Area'), ('Main Room', 'Main Room'), ('Entrance', 'Entrance'), ('Droid Cam', 'Droid Cam')],
         validators=[DataRequired()]
     )
@@ -26,7 +26,7 @@ class CameraForm(FlaskForm):
         if len(segments) != 4 or any(not segment.isdigit() or not (0 <= int(segment) <= 255) for segment in segments):
             raise ValidationError('Invalid IP Address format. IP segments should be between 0 and 255.')
 
-    submit = SubmitField('Add Camera')
+    submit = SubmitField('Add CCTV')
 
 class ModelForm(FlaskForm):
     model_name = StringField('Model Name', validators=[DataRequired()])

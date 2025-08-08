@@ -8,9 +8,13 @@ from app.utils.detector import DetectorManager
 import os
 import signal
 
+# Global detector manager instance
+detector_manager = None
+
 def handle_shutdown_signal(signal, frame):
     print("Shutting down detector manager...")
-    detector_manager.stop_all()
+    if detector_manager:
+        detector_manager.stop_all()
     print("Detector manager stopped.")
     os._exit(0)
 

@@ -135,7 +135,10 @@
     <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
       <div class="flex justify-between items-center border-b pb-2 mb-4">
         <h5 class="text-xl font-bold">Add Model</h5>
-        <button id="closeAddModal" class="text-gray-500 hover:text-gray-700">
+        <button
+          id="closeAddModal"
+          class="text-gray-500 hover:text-gray-700 text-3xl"
+        >
           &times;
         </button>
       </div>
@@ -151,14 +154,18 @@
             >Model Name</label
           >
           {{ form.model_name(class="border border-gray-300 rounded w-full p-2")
-          }}
+          }} {% for error in form.model_name.errors %}
+          <span class="text-red-500">{{ error }}</span>
+          {% endfor %}
         </div>
         <div class="mb-4">
           <label for="modelFile" class="text-sm font-medium text-gray-700"
             >Upload Model File</label
           >
           {{ form.model_file(class="border border-gray-300 rounded w-full p-2")
-          }}
+          }} {% for error in form.model_file.errors %}
+          <span class="text-red-500">{{ error }}</span>
+          {% endfor %}
         </div>
         <button
           type="submit"
@@ -172,15 +179,15 @@
 
   <!-- Edit Model Modal -->
   <div
-    id="editModelButton"
+    id="editModelModal"
     class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden"
   >
-    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
+    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
       <div class="flex justify-between items-center border-b pb-2 mb-4">
         <h5 class="text-xl font-bold">Edit Model</h5>
         <button
-          id="closeEditModelButton"
-          class="text-gray-500 hover:text-gray-700"
+          id="closeEditModal"
+          class="text-gray-500 hover:text-gray-700 text-3xl"
         >
           &times;
         </button>
@@ -188,38 +195,44 @@
       <form
         id="editModelForm"
         method="POST"
-        action="{{ url_for('model.edit_model', id=0) }}"
+        action=""
         enctype="multipart/form-data"
       >
         {{ form.hidden_tag() }}
         <div class="mb-4">
-          <label for="modelNameInput" class="text-sm font-medium text-gray-700"
-            >Model Name</label
-          >
-          <input
-            type="text"
-            id="modelNameInput"
-            name="model_name"
-            class="border border-gray-300 rounded w-full p-2"
-            required
-          />
+          {{ form.model_name.label(class="text-sm font-medium text-gray-700") }}
+          {{ form.model_name(id="modelNameInput", class="border border-gray-300
+          rounded w-full p-2", required=True) }} {% for error in
+          form.model_name.errors %}
+          <span class="text-red-500">{{ error }}</span>
+          {% endfor %}
         </div>
         <div class="mb-4">
-          <label for="modelFile" class="text-sm font-medium text-gray-700"
-            >Upload New Model File (optional)</label
-          >
-          <input
-            type="file"
-            name="model_file"
-            class="border border-gray-300 rounded w-full p-2"
-          />
+          {{ form.model_file.label(class="text-sm font-medium text-gray-700") }}
+          {{ form.model_file(class="border border-gray-300 rounded w-full p-2")
+          }}
+          <p class="text-sm text-gray-500 mt-1">
+            Leave blank to keep existing file
+          </p>
+          {% for error in form.model_file.errors %}
+          <span class="text-red-500">{{ error }}</span>
+          {% endfor %}
         </div>
         <button
           type="submit"
           class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-200"
         >
-          Update Model
+          Save Changes
         </button>
+        <!-- Loading Overlay -->
+        <div
+          id="loadingOverlay"
+          class="hidden absolute inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center"
+        >
+          <div
+            class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"
+          ></div>
+        </div>
       </form>
     </div>
   </div>
@@ -247,28 +260,60 @@
           const modelId = this.getAttribute("data-id");
 
           // Fetch model data
-          fetch(`/detection/edit_model/${modelId}`)
+          fetch(`/model/edit_model/${modelId}`)
             .then((response) => response.json())
             .then((data) => {
               document.getElementById("modelNameInput").value = data.model_name;
+              document.getElementById(
+                "editModelForm"
+              ).action = `/model/edit_model/${modelId}`;
               document
-                .getElementById("editModelButton")
+                .getElementById("editModelModal")
                 .classList.remove("hidden");
-              let formAction = document.getElementById("editModelForm").action;
-              formAction = formAction.replace(/0$/, modelId);
-              document.getElementById("editModelForm").action = formAction;
             })
             .catch((error) => {
               console.error("Error fetching model data:", error);
+              alert("Failed to load model data. Please try again.");
             });
         });
       });
 
       // Close Edit Model Modal
       document
-        .getElementById("closeEditModelButton")
+        .getElementById("closeEditModal")
         .addEventListener("click", function () {
-          document.getElementById("editModelButton").classList.add("hidden");
+          document.getElementById("editModelModal").classList.add("hidden");
+        });
+
+      // Handle Edit Form Submission
+      document
+        .getElementById("editModelForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+          const form = this;
+          // Show loading overlay
+          document.getElementById("loadingOverlay").classList.remove("hidden");
+          fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: {
+              "X-CSRFToken": "{{ csrf_token() }}",
+            },
+          })
+            .then((response) => {
+              document.getElementById("loadingOverlay").classList.add("hidden");
+              if (response.ok) {
+                window.location.href = "{{ url_for('model.setting_model') }}";
+              } else {
+                return response.json().then((data) => {
+                  throw new Error(data.message || "Error updating model");
+                });
+              }
+            })
+            .catch((error) => {
+              console.error("Error updating model:", error);
+              alert("Error updating model. Please try again.");
+            });
         });
     });
   </script>

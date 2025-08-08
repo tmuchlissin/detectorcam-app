@@ -5,7 +5,7 @@
     class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold transform transition duration-500 hover:scale-105 hover:shadow-lg hover:bg-green-700 focus:outline-none mr-3"
     id="addCameraBtn"
   >
-    <i class="fas fa-camera mr-2"></i> Add Camera
+    <i class="fas fa-camera mr-2"></i> Add CCTV
   </button>
   <form
     action="{{ url_for('cctv.delete_all_cameras') }}"
@@ -32,7 +32,7 @@
           >
             <div class="flex items-center justify-center space-x-2">
               <i class="fas fa-hashtag text-slate-300"></i>
-              <span>ID</span>
+              <span>CCTV ID</span>
             </div>
           </th>
           <th
@@ -191,8 +191,11 @@
       class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 transform transition-transform duration-300 ease-in-out scale-90"
     >
       <div class="flex justify-between items-center border-b pb-2 mb-4">
-        <h5 class="text-xl font-bold text-gray-800">Add Camera</h5>
-        <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+        <h5 class="text-xl font-bold text-gray-800">Add CCTV</h5>
+        <button
+          id="closeModal"
+          class="text-gray-500 hover:text-gray-700 text-3xl"
+        >
           &times;
         </button>
       </div>
@@ -248,10 +251,13 @@
     id="editCameraModal"
     class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden"
   >
-    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
+    <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
       <div class="flex justify-between items-center border-b pb-2 mb-4">
-        <h5 class="text-xl font-bold">Edit Camera</h5>
-        <button id="closeEditModal" class="text-gray-500 hover:text-gray-700">
+        <h5 class="text-xl font-bold">Edit CCTV</h5>
+        <button
+          id="closeEditModal"
+          class="text-gray-500 hover:text-gray-700 text-3xl"
+        >
           &times;
         </button>
       </div>
@@ -311,6 +317,15 @@
           Save Changes
         </button>
       </form>
+      <!-- Loading Overlay -->
+      <div
+        id="loadingOverlay"
+        class="hidden absolute inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center"
+      >
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"
+        ></div>
+      </div>
     </div>
   </div>
 
@@ -347,6 +362,7 @@
       .addEventListener("submit", function (event) {
         event.preventDefault();
         const form = this;
+        document.getElementById("loadingOverlay").classList.remove("hidden");
         fetch(form.action, {
           method: "POST",
           body: new FormData(form),
@@ -354,6 +370,7 @@
             "X-CSRFToken": "{{ csrf_token() }}",
           },
         }).then((response) => {
+          document.getElementById("loadingOverlay").classList.add("hidden");
           if (response.ok) {
             window.location.href = "{{ url_for('cctv.main_cctv') }}";
           } else {

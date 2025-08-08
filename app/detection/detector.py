@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify
 from app.models import Camera, Model, Detector
 from app.forms import DetectorForm
 import cv2
@@ -6,12 +6,10 @@ from datetime import datetime
 import pytz
 import logging
 import time
-from app.utils.detector import annotated_frames  # Fixed import path
+from app.utils.detector import annotated_frames, detector_fps_info  # Import FPS info
 
 logger = logging.getLogger(__name__)
-
 detector = Blueprint('detector', __name__, url_prefix="/detector")
-
 wib = pytz.timezone('Asia/Jakarta')
 
 @detector.route('/main', methods=['GET', 'POST'])
@@ -21,8 +19,10 @@ def main_detector():
     models = Model.query.all()
     form.camera_id.choices = [(camera.id, camera.location) for camera in cameras]
     form.model_id.choices = [(model.id, model.model_name) for model in models]
-    detectors = Detector.query.all()
-
+    
+    # Sort detectors by camera.id in ascending order
+    detectors = Detector.query.join(Camera).order_by(Camera.id.asc()).all()
+    
     if form.validate_on_submit():
         from app import db
         new_detector = Detector(
@@ -43,7 +43,7 @@ def main_detector():
             db.session.rollback()
             flash(f'Error adding detector: {str(e)}', 'danger')
         return redirect(url_for('detector.main_detector'))
-
+    
     return render_template('detection/detector.html', form=form, cameras=cameras, models=models, detectors=detectors)
 
 @detector.route('/edit_detector/<int:id>', methods=['GET', 'POST'])
@@ -54,13 +54,14 @@ def edit_detector(id):
     models = Model.query.all()
     form.camera_id.choices = [(camera.id, camera.location) for camera in cameras]
     form.model_id.choices = [(model.id, model.model_name) for model in models]
-
+    
     if request.method == 'POST':
         if form.validate_on_submit():
             detector.camera_id = form.camera_id.data
             detector.model_id = form.model_id.data
             detector.running = form.running.data
             detector.updated_at = datetime.now(wib)
+            
             try:
                 from app import db
                 db.session.commit()
@@ -75,10 +76,11 @@ def edit_detector(id):
                 return redirect(url_for('detector.main_detector'))
         else:
             flash('Please fill in all required fields.', 'danger')
-
+    
     form.camera_id.data = detector.camera_id
     form.model_id.data = detector.model_id
     form.running.data = detector.running
+    
     return render_template('detector/edit_detector.html', form=form, detector=detector)
 
 @detector.route('/view_detector/<int:id>', methods=['GET'])
@@ -90,7 +92,7 @@ def view_detector(id):
     detector_obj = Detector.query.get_or_404(id)
     camera = Camera.query.get(detector_obj.camera_id)
     model = Model.query.get(detector_obj.model_id)
-
+    
     # Memeriksa apakah detektor dan kamera aktif
     if not detector_obj.running:
         flash('Detector is not active. Please turn it on first.', 'warning')
@@ -104,8 +106,32 @@ def view_detector(id):
     if not model or not model.model_file:
         flash('Model file is missing. Please upload the model file again.', 'danger')
         return redirect(url_for('detector.main_detector'))
-
+    
     return render_template('detection/view_detector.html', detector=detector_obj)
+
+@detector.route('/fps_info/<int:id>')
+def get_fps_info(id):
+    """
+    API endpoint untuk mendapatkan informasi FPS dan performance detector
+    """
+    fps_info = detector_fps_info.get(id, {
+        'fps': 0.0,
+        'inference_time': 0.0,
+        'detections': 0,
+        'last_update': 0
+    })
+    
+    # Check if data is stale (older than 5 seconds)
+    current_time = time.time()
+    if current_time - fps_info.get('last_update', 0) > 5:
+        fps_info = {
+            'fps': 0.0,
+            'inference_time': 0.0,
+            'detections': 0,
+            'last_update': current_time
+        }
+    
+    return jsonify(fps_info)
 
 @detector.route('/stream_detector/<int:id>')
 def stream_detector(id):
@@ -119,7 +145,7 @@ def stream_detector(id):
     if not detector_obj or not detector_obj.running:
         logger.warning(f"Attempted to stream inactive or non-existent detector {id}")
         return "Detector is off or does not exist", 400
-
+    
     def generate_frames(detector_id, app):
         """Generator function for streaming frames with YOLO detection"""
         frame_count = 0
@@ -127,7 +153,7 @@ def stream_detector(id):
         empty_frame_count = 0
         last_check_time = time.time()
         
-        logger.info(f"Starting frame generation for detector {detector_id}")
+        logger.info(f"Starting detector frame generation for detector {detector_id}")
         
         while True:
             try:
@@ -179,8 +205,8 @@ def stream_detector(id):
                 logger.error(f"Error in frame generation for detector {detector_id}: {e}")
                 break
         
-        logger.info(f"Frame generation stopped for detector {detector_id}. Total frames: {frame_count}")
-
+        logger.info(f"Detector frame generation stopped for detector {detector_id}. Total frames: {frame_count}")
+    
     return Response(
         generate_frames(id, current_app._get_current_object()),
         mimetype='multipart/x-mixed-replace; boundary=frame',

@@ -6,7 +6,7 @@ from datetime import datetime
 import pytz
 import logging
 import time
-from app.utils.detector import annotated_frames, detector_fps_info  # Import FPS info
+from app.utils.detector import annotated_frames, detector_fps_info  
 
 logger = logging.getLogger(__name__)
 detector = Blueprint('detector', __name__, url_prefix="/detector")
@@ -85,17 +85,12 @@ def edit_detector(id):
 
 @detector.route('/view_detector/<int:id>', methods=['GET'])
 def view_detector(id):
-    """
-    Menampilkan halaman view untuk satu detector.
-    Halaman HTML akan memanggil route 'stream_detector' untuk menampilkan video.
-    """
     detector_obj = Detector.query.get_or_404(id)
     camera = Camera.query.get(detector_obj.camera_id)
     model = Model.query.get(detector_obj.model_id)
     tracking = request.args.get('tracking', 'false').lower() == 'true'
 
 
-    # Memeriksa apakah detektor dan kamera aktif
     if not detector_obj.running:
         flash('Detector is not active. Please turn it on first.', 'warning')
         return redirect(url_for('detector.main_detector'))
@@ -104,7 +99,6 @@ def view_detector(id):
         flash('Camera is not active. Please turn it on first.', 'warning')
         return redirect(url_for('detector.main_detector'))
 
-    # Memeriksa apakah file model ada
     if not model or not model.model_file:
         flash('Model file is missing. Please upload the model file again.', 'danger')
         return redirect(url_for('detector.main_detector'))
@@ -113,9 +107,6 @@ def view_detector(id):
 
 @detector.route('/fps_info/<int:id>')
 def get_fps_info(id):
-    """
-    API endpoint untuk mendapatkan informasi FPS dan performance detector
-    """
     fps_info = detector_fps_info.get(id, {
         'fps': 0.0,
         'inference_time': 0.0,
@@ -137,26 +128,20 @@ def get_fps_info(id):
 
 @detector.route('/stream_detector/<int:id>')
 def stream_detector(id):
-    """
-    Route ini khusus untuk streaming video dari detector yang sudah diproses.
-    """
     from flask import current_app
     from app import detector_manager
 
     tracking = request.args.get('tracking', 'false').lower() == 'true'
 
-    # Pemeriksaan awal untuk memastikan detektor ada dan berjalan
     detector_obj = Detector.query.get(id)
     if not detector_obj or not detector_obj.running:
         logger.warning(f"Attempted to stream inactive or non-existent detector {id}")
         return "Detector is off or does not exist", 400
 
-    # Update the detector manager with the new tracking status
     detector_manager.update_detectors(tracking_status={id: tracking})
 
 
     def generate_frames(detector_id, app):
-        """Generator function for streaming frames with YOLO detection"""
         frame_count = 0
         max_empty_frames = 150  # ~5 detik pada 30fps
         empty_frame_count = 0
@@ -168,7 +153,6 @@ def stream_detector(id):
             try:
                 current_time = time.time()
 
-                # Periksa status detektor setiap detik
                 if current_time - last_check_time >= 1.0:
                     with app.app_context():
                         current_detector = Detector.query.get(detector_id)
@@ -183,29 +167,25 @@ def stream_detector(id):
 
                     last_check_time = current_time
 
-                # Cek apakah frame yang sudah dianotasi tersedia
                 frame = annotated_frames.get(detector_id)
                 if frame is not None:
-                    empty_frame_count = 0  # Reset counter
+                    empty_frame_count = 0 
 
-                    # Encode frame sebagai JPEG
                     encode_params = [cv2.IMWRITE_JPEG_QUALITY, 85]
                     ret, buffer = cv2.imencode('.jpg', frame, encode_params)
 
                     if ret:
-                        # Yield frame dalam format multipart
                         yield (b'--frame\r\n'
                                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
                         frame_count += 1
                     else:
                         logger.warning(f"Failed to encode frame for detector {detector_id}")
                 else:
-                    # Jika frame tidak tersedia, tunggu sebentar
                     empty_frame_count += 1
                     if empty_frame_count >= max_empty_frames:
                         logger.warning(f"No annotated frames available for detector {detector_id} for too long, stopping stream")
                         break
-                    time.sleep(0.033)  # Tunggu frame berikutnya
+                    time.sleep(0.033) 
 
             except GeneratorExit:
                 logger.info(f"Client disconnected from detector {detector_id} stream")

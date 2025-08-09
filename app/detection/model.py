@@ -1,11 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.models import db, Model
 from app.forms import ModelForm
 from datetime import datetime 
 import pytz
 from flask import jsonify
-import numpy as np
-import os
 import logging
 
 logging.basicConfig(level=logging.INFO)

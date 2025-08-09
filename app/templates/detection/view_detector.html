@@ -280,37 +280,57 @@
   let fpsUpdateInterval;
   let isTracking = {{ tracking|tojson }};
 
+  // Auto-reconnect configuration
+  const INITIAL_DELAY = 5000;
+  const MAX_DELAY = 60000;
+  const BACKOFF_FACTOR = 2;
+  let currentDelay = INITIAL_DELAY;
+  let reconnectTimer;
+
   document.addEventListener("DOMContentLoaded", function () {
     const streamImg = document.getElementById("camera-stream");
-    const streamContainer = document.getElementById("stream-container");
-    const loadingIndicator = document.getElementById("loading-indicator");
     const errorMessage = document.getElementById("error-message");
+    const loadingIndicator = document.getElementById("loading-indicator");
     const trackingToggle = document.getElementById('tracking-toggle');
 
-
     if (streamImg) {
-      if (loadingIndicator) loadingIndicator.classList.remove("hidden");
-      streamImg.style.opacity = "0";
-
       streamImg.onload = function () {
         if (loadingIndicator) loadingIndicator.classList.add("hidden");
         if (errorMessage) errorMessage.classList.add("hidden");
         streamImg.style.opacity = "1";
 
-        // Start FPS updates when stream loads successfully
+        // Reset state if connection successful
+        currentDelay = INITIAL_DELAY;
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+
         startFPSUpdates();
       };
 
       streamImg.onerror = function () {
-        if (loadingIndicator) loadingIndicator.classList.add("hidden");
-        if (errorMessage) errorMessage.classList.remove("hidden");
         streamImg.style.opacity = "0";
-
-        // Stop FPS updates on error
+        if (loadingIndicator) loadingIndicator.classList.add("hidden");
         stopFPSUpdates();
 
-        setTimeout(() => refreshStream(true), 5000); // Retry after 5s
+        // Display error message
+        if (errorMessage) {
+            errorMessage.classList.remove("hidden");
+            errorMessage.querySelector('p.font-medium').textContent = "Stream Connection Lost";
+            errorMessage.querySelector('p.text-sm').textContent = `Try again in ${currentDelay / 1000} seconds...`;
+        }
+
+        console.error(`Stream error. Retrying in ${currentDelay / 1000}s...`);
+
+        // Retry schedule
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(() => {
+            refreshStream(true);
+            // Double the pause for the next try, until you reach the maximum limit.
+            currentDelay = Math.min(currentDelay * BACKOFF_FACTOR, MAX_DELAY);
+        }, currentDelay);
       };
+
+      // Start stream if load page
+      refreshStream();
     }
 
     if (trackingToggle) {
@@ -322,13 +342,8 @@
   });
 
   function startFPSUpdates() {
-    // Stop any existing interval
     stopFPSUpdates();
-
-    // Update FPS info immediately
     updateFPSInfo();
-
-    // Update every second
     fpsUpdateInterval = setInterval(updateFPSInfo, 1000);
   }
 
@@ -343,27 +358,22 @@
     fetch(`{{ url_for('detector.get_fps_info', id=detector.id) }}`)
       .then(response => response.json())
       .then(data => {
-        // Update overlay
         const fpsValue = document.getElementById('fps-value');
         const inferenceValue = document.getElementById('inference-value');
         const detectionsValue = document.getElementById('detections-value');
-
         if (fpsValue) fpsValue.textContent = data.fps.toFixed(1);
         if (inferenceValue) inferenceValue.textContent = data.inference_time.toFixed(1) + 'ms';
         if (detectionsValue) detectionsValue.textContent = data.detections;
 
-        // Update sidebar
         const sidebarFps = document.getElementById('sidebar-fps');
         const sidebarInference = document.getElementById('sidebar-inference');
         const sidebarDetections = document.getElementById('sidebar-detections');
-        const statusIndicator = document.getElementById('status-indicator');
-        const statusText = document.getElementById('status-text');
-
         if (sidebarFps) sidebarFps.textContent = data.fps.toFixed(1);
         if (sidebarInference) sidebarInference.textContent = data.inference_time.toFixed(1) + 'ms';
         if (sidebarDetections) sidebarDetections.textContent = data.detections;
 
-        // Update status based on FPS
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
         if (statusIndicator && statusText) {
           if (data.fps > 0) {
             statusIndicator.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
@@ -378,10 +388,8 @@
       })
       .catch(error => {
         console.error('Error fetching FPS info:', error);
-        // Update status to show error
         const statusIndicator = document.getElementById('status-indicator');
         const statusText = document.getElementById('status-text');
-
         if (statusIndicator && statusText) {
           statusIndicator.className = 'w-2 h-2 rounded-full bg-red-500';
           statusText.textContent = 'Connection Error';
@@ -392,20 +400,21 @@
 
   function refreshStream(isRetry = false) {
     const streamImg = document.getElementById("camera-stream");
-    const loadingIndicator = document.getElementById("loading-indicator");
-    const errorMessage = document.getElementById("error-message");
+    if (!streamImg) return;
 
-    if (streamImg) {
-      if (loadingIndicator) loadingIndicator.classList.remove("hidden");
-      if (errorMessage) errorMessage.classList.add("hidden");
-
-      // Stop FPS updates during refresh
-      stopFPSUpdates();
-
-      // Refresh stream URL
-      const baseUrl = `{{ url_for('detector.stream_detector', id=detector.id) }}?tracking=${isTracking}`;
-      streamImg.src = baseUrl + "&t=" + new Date().getTime();
+    if (!isRetry) {
+        currentDelay = INITIAL_DELAY;
+        if (reconnectTimer) clearTimeout(reconnectTimer);
     }
+
+    console.log("Attempting to load stream. Tracking:", isTracking);
+    document.getElementById("loading-indicator")?.classList.remove("hidden");
+    document.getElementById("error-message")?.classList.add("hidden");
+
+    stopFPSUpdates();
+
+    const baseUrl = `{{ url_for('detector.stream_detector', id=detector.id) }}?tracking=${isTracking}`;
+    streamImg.src = baseUrl + "&t=" + new Date().getTime();
   }
 
   function toggleFullscreen() {
@@ -421,17 +430,9 @@
     }
   }
 
-  // Auto-refresh every 30 minutes
-  setInterval(() => {
-    const streamImg = document.getElementById("camera-stream");
-    if (streamImg && streamImg.style.opacity !== "0") {
-      refreshStream();
-    }
-  }, 30 * 60 * 1000);
-
-  // Cleanup when leaving page
   window.addEventListener('beforeunload', function() {
     stopFPSUpdates();
+    if (reconnectTimer) clearTimeout(reconnectTimer);
   });
 </script>
 <style>

@@ -68,7 +68,6 @@ class CameraStreamManager:
             return self.camera_streams[ip_address]
 
     def release_stream(self, ip_address, consumer_id=None):
-        """Release stream for a specific consumer"""
         with self.lock:
             if ip_address in self.camera_streams:
                 stream = self.camera_streams[ip_address]
@@ -87,7 +86,6 @@ class CameraStreamManager:
                         del self.camera_streams[ip_address]
 
     def force_restart_stream(self, ip_address, consumer_id=None):
-        """Force restart stream untuk mengatasi masalah"""
         with self.lock:
             logger.info(f"Force restarting camera stream for IP: {ip_address}")
             
@@ -182,7 +180,6 @@ class CameraStream(threading.Thread):
         logger.info(f"Initialized CameraStream for IP: {self.ip_address}")
 
     def _initialize_capture(self):
-        """Initialize the video capture with proper error handling"""
         try:
             # Force release any existing capture first
             if self.capture is not None:
@@ -233,13 +230,11 @@ class CameraStream(threading.Thread):
             self.connection_failed = True
 
     def add_consumer(self, consumer_id):
-        """Add a consumer to track stream usage"""
         with self.lock:
             self.active_consumers.add(consumer_id)
             logger.info(f"Added consumer {consumer_id} to stream {self.ip_address}. Total consumers: {len(self.active_consumers)}")
 
     def remove_consumer(self, consumer_id):
-        """Remove a consumer and check if stream should be stopped"""
         with self.lock:
             self.active_consumers.discard(consumer_id)
             logger.info(f"Removed consumer {consumer_id} from stream {self.ip_address}. Remaining consumers: {len(self.active_consumers)}")
@@ -300,7 +295,6 @@ class CameraStream(threading.Thread):
         logger.info(f"Camera stream thread ending for IP: {self.ip_address}")
 
     def _reconnect(self):
-        """Safely reconnect to the camera stream"""
         if not self.running:
             return
             
@@ -333,7 +327,6 @@ class CameraStream(threading.Thread):
             return None
 
     def _cleanup(self):
-        """Proper cleanup of resources"""
         if self.capture is not None:
             try:
                 self.capture.release()
@@ -344,7 +337,6 @@ class CameraStream(threading.Thread):
                 self.capture = None
 
     def stop(self):
-        """Gracefully stop the camera stream"""
         logger.info(f"Stopping camera stream for IP: {self.ip_address}")
         self.running = False
         
@@ -352,7 +344,6 @@ class CameraStream(threading.Thread):
         time.sleep(0.1)
 
     def is_healthy(self):
-        """Check if the camera stream is healthy"""
         if not self.running or self.connection_failed:
             return False
         

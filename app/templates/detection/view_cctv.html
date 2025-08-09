@@ -79,9 +79,13 @@
             </div>
             <div class="flex justify-between items-center">
               <span class="text-slate-500">IP Address</span>
-              <span class="font-mono font-medium text-slate-700"
-                >{{ camera.ip_address }}</span
+              <span
+                class="font-mono font-sm text-slate-700 text-right"
+                title="{{ camera.ip_address }}"
               >
+                {% if camera.ip_address|length > 30 %} {{ camera.ip_address[:25]
+                }}... {% else %} {{ camera.ip_address }} {% endif %}
+              </span>
             </div>
             <div class="flex justify-between items-center">
               <span class="text-slate-500">Type</span>

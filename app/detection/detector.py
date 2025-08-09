@@ -19,10 +19,10 @@ def main_detector():
     models = Model.query.all()
     form.camera_id.choices = [(camera.id, camera.location) for camera in cameras]
     form.model_id.choices = [(model.id, model.model_name) for model in models]
-    
+
     # Sort detectors by camera.id in ascending order
     detectors = Detector.query.join(Camera).order_by(Camera.id.asc()).all()
-    
+
     if form.validate_on_submit():
         from app import db
         new_detector = Detector(
@@ -43,7 +43,7 @@ def main_detector():
             db.session.rollback()
             flash(f'Error adding detector: {str(e)}', 'danger')
         return redirect(url_for('detector.main_detector'))
-    
+
     return render_template('detection/detector.html', form=form, cameras=cameras, models=models, detectors=detectors)
 
 @detector.route('/edit_detector/<int:id>', methods=['GET', 'POST'])
@@ -54,14 +54,14 @@ def edit_detector(id):
     models = Model.query.all()
     form.camera_id.choices = [(camera.id, camera.location) for camera in cameras]
     form.model_id.choices = [(model.id, model.model_name) for model in models]
-    
+
     if request.method == 'POST':
         if form.validate_on_submit():
             detector.camera_id = form.camera_id.data
             detector.model_id = form.model_id.data
             detector.running = form.running.data
             detector.updated_at = datetime.now(wib)
-            
+
             try:
                 from app import db
                 db.session.commit()
@@ -76,11 +76,11 @@ def edit_detector(id):
                 return redirect(url_for('detector.main_detector'))
         else:
             flash('Please fill in all required fields.', 'danger')
-    
+
     form.camera_id.data = detector.camera_id
     form.model_id.data = detector.model_id
     form.running.data = detector.running
-    
+
     return render_template('detector/edit_detector.html', form=form, detector=detector)
 
 @detector.route('/view_detector/<int:id>', methods=['GET'])
@@ -92,22 +92,24 @@ def view_detector(id):
     detector_obj = Detector.query.get_or_404(id)
     camera = Camera.query.get(detector_obj.camera_id)
     model = Model.query.get(detector_obj.model_id)
-    
+    tracking = request.args.get('tracking', 'false').lower() == 'true'
+
+
     # Memeriksa apakah detektor dan kamera aktif
     if not detector_obj.running:
         flash('Detector is not active. Please turn it on first.', 'warning')
         return redirect(url_for('detector.main_detector'))
-    
+
     if not camera or not camera.status:
         flash('Camera is not active. Please turn it on first.', 'warning')
         return redirect(url_for('detector.main_detector'))
-    
+
     # Memeriksa apakah file model ada
     if not model or not model.model_file:
         flash('Model file is missing. Please upload the model file again.', 'danger')
         return redirect(url_for('detector.main_detector'))
-    
-    return render_template('detection/view_detector.html', detector=detector_obj)
+
+    return render_template('detection/view_detector.html', detector=detector_obj, tracking=tracking)
 
 @detector.route('/fps_info/<int:id>')
 def get_fps_info(id):
@@ -120,7 +122,7 @@ def get_fps_info(id):
         'detections': 0,
         'last_update': 0
     })
-    
+
     # Check if data is stale (older than 5 seconds)
     current_time = time.time()
     if current_time - fps_info.get('last_update', 0) > 5:
@@ -130,7 +132,7 @@ def get_fps_info(id):
             'detections': 0,
             'last_update': current_time
         }
-    
+
     return jsonify(fps_info)
 
 @detector.route('/stream_detector/<int:id>')
@@ -139,26 +141,33 @@ def stream_detector(id):
     Route ini khusus untuk streaming video dari detector yang sudah diproses.
     """
     from flask import current_app
-    
+    from app import detector_manager
+
+    tracking = request.args.get('tracking', 'false').lower() == 'true'
+
     # Pemeriksaan awal untuk memastikan detektor ada dan berjalan
     detector_obj = Detector.query.get(id)
     if not detector_obj or not detector_obj.running:
         logger.warning(f"Attempted to stream inactive or non-existent detector {id}")
         return "Detector is off or does not exist", 400
-    
+
+    # Update the detector manager with the new tracking status
+    detector_manager.update_detectors(tracking_status={id: tracking})
+
+
     def generate_frames(detector_id, app):
         """Generator function for streaming frames with YOLO detection"""
         frame_count = 0
         max_empty_frames = 150  # ~5 detik pada 30fps
         empty_frame_count = 0
         last_check_time = time.time()
-        
+
         logger.info(f"Starting detector frame generation for detector {detector_id}")
-        
+
         while True:
             try:
                 current_time = time.time()
-                
+
                 # Periksa status detektor setiap detik
                 if current_time - last_check_time >= 1.0:
                     with app.app_context():
@@ -166,23 +175,23 @@ def stream_detector(id):
                         if not current_detector or not current_detector.running:
                             logger.info(f"Detector {detector_id} became inactive during streaming")
                             break
-                        
+
                         current_camera = Camera.query.get(current_detector.camera_id)
                         if not current_camera or not current_camera.status:
                             logger.info(f"Camera for detector {detector_id} became inactive during streaming")
                             break
-                    
+
                     last_check_time = current_time
-                
+
                 # Cek apakah frame yang sudah dianotasi tersedia
                 frame = annotated_frames.get(detector_id)
                 if frame is not None:
                     empty_frame_count = 0  # Reset counter
-                    
+
                     # Encode frame sebagai JPEG
                     encode_params = [cv2.IMWRITE_JPEG_QUALITY, 85]
                     ret, buffer = cv2.imencode('.jpg', frame, encode_params)
-                    
+
                     if ret:
                         # Yield frame dalam format multipart
                         yield (b'--frame\r\n'
@@ -197,16 +206,16 @@ def stream_detector(id):
                         logger.warning(f"No annotated frames available for detector {detector_id} for too long, stopping stream")
                         break
                     time.sleep(0.033)  # Tunggu frame berikutnya
-                
+
             except GeneratorExit:
                 logger.info(f"Client disconnected from detector {detector_id} stream")
                 break
             except Exception as e:
                 logger.error(f"Error in frame generation for detector {detector_id}: {e}")
                 break
-        
+
         logger.info(f"Detector frame generation stopped for detector {detector_id}. Total frames: {frame_count}")
-    
+
     return Response(
         generate_frames(id, current_app._get_current_object()),
         mimetype='multipart/x-mixed-replace; boundary=frame',

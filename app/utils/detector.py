@@ -37,7 +37,7 @@ class FPSCalculator:
         return self.last_fps
 
 class DetectorThread(threading.Thread):
-    def __init__(self, app, detector_id, camera_stream, camera_ip, camera_stream_manager):
+    def __init__(self, app, detector_id, camera_stream, camera_ip, camera_stream_manager, tracking=False):
         super().__init__(name=f"DetectorThread-{detector_id}")
         self.app = app
         self.detector_id = detector_id
@@ -49,16 +49,17 @@ class DetectorThread(threading.Thread):
         self.lock = threading.Lock()
         self.yolo_model = None
         self.temp_model_file = None
-        
+        self.tracking = tracking
+
         # FPS calculation
         self.fps_calculator = FPSCalculator()
         self.inference_times = deque(maxlen=30)  # Store last 30 inference times
-        
+
         # Register this detector as a consumer
         if self.camera_stream:
             self.camera_stream.add_consumer(self.consumer_id)
         
-        logger.info(f"Initialized DetectorThread for detector ID: {self.detector_id} - Consumer: {self.consumer_id}")
+        logger.info(f"Initialized DetectorThread for detector ID: {self.detector_id} - Consumer: {self.consumer_id} - Tracking: {self.tracking}")
     
     def _load_model_from_database(self):
         """Load YOLO model from database binary data"""
@@ -137,14 +138,21 @@ class DetectorThread(threading.Thread):
                                 # Measure inference time
                                 inference_start = time.time()
                                 
-                                # Run YOLO detection on the frame
-                                results = self.yolo_model(frame, verbose=False)
-                                
+                                # Run YOLO detection or tracking on the frame
+                                if self.tracking:
+                                    results = self.yolo_model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False)
+                                else:
+                                    results = self.yolo_model(frame, verbose=False)
+                                                                    # Secara manual bersihkan ID pelacakan jika ada sisa dari sesi sebelumnya
+                                    if results[0].boxes.id is not None:
+                                        results[0].boxes.id = None
+                                        
                                 # Calculate inference time
                                 inference_time = time.time() - inference_start
                                 self.inference_times.append(inference_time)
                                 
                                 # Get annotated frame with bounding boxes
+                                # --- PERBAIKAN: Hapus argumen 'show_track' ---
                                 annotated_frame = results[0].plot(
                                     conf=True,
                                     labels=True,
@@ -174,7 +182,7 @@ class DetectorThread(threading.Thread):
                                     logger.info(f"Detector {self.detector_id}: {detections} objects, FPS: {current_fps:.1f}, Inference: {avg_inference_time*1000:.1f}ms")
                                     
                         except Exception as e:
-                            logger.error(f"Error processing frame for detector ID: {self.detector_id}: {e}")
+                            logger.error(f"Error processing frame for detector ID: {self.detector_id}: {e}", exc_info=True)
                             
                     else:
                         time.sleep(0.1)  # Short sleep when no frame available
@@ -183,11 +191,11 @@ class DetectorThread(threading.Thread):
                     time.sleep(0.033)  # ~30 FPS
                     
                 except Exception as e:
-                    logger.error(f"Unexpected error in detector thread {self.detector_id}: {e}")
+                    logger.error(f"Unexpected error in detector thread {self.detector_id}: {e}", exc_info=True)
                     time.sleep(1)
                     
         except Exception as e:
-            logger.error(f"Critical error in detector thread {self.detector_id}: {e}")
+            logger.error(f"Critical error in detector thread {self.detector_id}: {e}", exc_info=True)
         finally:
             self._cleanup()
         
@@ -242,48 +250,12 @@ class DetectorManager:
     def initialize_detectors(self, app):
         """Initialize all active detectors from database"""
         self.app = app
-        from app.models import Detector, Camera, Model
-        
-        with self.app.app_context():
-            with self.lock:
-                logger.info("Initializing detectors...")
-                active_detectors = Detector.query.filter(Detector.running == True).all()
-                
-                for detector in active_detectors:
-                    try:
-                        # Validate camera
-                        camera = Camera.query.get(detector.camera_id)
-                        if not camera or not camera.status:
-                            logger.warning(f"Camera {detector.camera_id} is not active or does not exist. Skipping detector {detector.id}")
-                            continue
-                        
-                        # Validate model
-                        model = Model.query.get(detector.model_id)
-                        if not model or not model.model_file:
-                            logger.warning(f"Model {detector.model_id} is not valid or has no model file. Skipping detector {detector.id}")
-                            continue
-                        
-                        # Get camera stream
-                        camera_stream = self.camera_manager.get_camera_stream(camera.ip_address)
-                        if not camera_stream:
-                            logger.warning(f"Cannot get camera stream for {camera.ip_address}. Skipping detector {detector.id}")
-                            continue
-                        
-                        # Start detector thread
-                        detector_thread = DetectorThread(self.app, detector.id, camera_stream, camera.ip_address, self.camera_manager)
-                        detector_thread.start()
-                        self.detectors[detector.id] = detector_thread
-                        
-                        logger.info(f"Detector {detector.id} started with camera stream {camera.ip_address} and model {model.model_name}")
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to initialize detector {detector.id}: {e}")
-                        continue
-                
-                logger.info(f"Initialized {len(self.detectors)} detectors")
-    
-    def update_detectors(self):
-        """Update detectors based on current database state"""
+        self.update_detectors()
+
+    # --- PERBAIKAN: Modifikasi seluruh fungsi update_detectors ---
+    def update_detectors(self, tracking_status={}):
+        """Update detectors based on current database state.
+        This will stop/start/restart threads as needed."""
         if not self.app:
             logger.error("DetectorManager not initialized with app context")
             return
@@ -295,117 +267,101 @@ class DetectorManager:
                 logger.info("Updating detectors...")
                 
                 try:
-                    # Get currently active detectors from database
-                    active_detectors = Detector.query.filter(Detector.running == True).all()
-                    active_detector_ids = {detector.id for detector in active_detectors}
-                    
-                    # Stop detectors that are no longer active
-                    detectors_to_stop = []
-                    for detector_id in list(self.detectors.keys()):
-                        if detector_id not in active_detector_ids:
-                            detectors_to_stop.append(detector_id)
-                    
-                    for detector_id in detectors_to_stop:
-                        logger.info(f"Stopping detector ID: {detector_id}")
-                        try:
-                            detector_thread = self.detectors[detector_id]
-                            detector_thread.stop()
-                            detector_thread.join(timeout=5.0)
-                            del self.detectors[detector_id]
-                            logger.info(f"Successfully stopped detector ID: {detector_id}")
-                        except Exception as e:
-                            logger.error(f"Error stopping detector {detector_id}: {e}")
-                    
-                    # Start new detectors
-                    for detector in active_detectors:
-                        if detector.id not in self.detectors:
-                            try:
-                                # Validate camera
-                                camera = Camera.query.get(detector.camera_id)
-                                if not camera or not camera.status:
-                                    logger.warning(f"Camera {detector.camera_id} is not active. Cannot start detector {detector.id}")
-                                    continue
-                                
-                                # Validate model
-                                model = Model.query.get(detector.model_id)
-                                if not model or not model.model_file:
-                                    logger.warning(f"Model {detector.model_id} is not valid. Cannot start detector {detector.id}")
-                                    continue
-                                
-                                # Get camera stream with detector consumer ID
-                                consumer_id = f"detector_{detector.id}"
-                                camera_stream = self.camera_manager.get_camera_stream(camera.ip_address, consumer_id)
-                                if not camera_stream:
-                                    logger.warning(f"Cannot get camera stream for {camera.ip_address}. Cannot start detector {detector.id}")
-                                    continue
-                                
-                                # Start new detector thread
-                                detector_thread = DetectorThread(
-                                    self.app, 
-                                    detector.id, 
-                                    camera_stream, 
-                                    camera.ip_address,
-                                    self.camera_manager
-                                )
-                                detector_thread.start()
-                                self.detectors[detector.id] = detector_thread
-                                
-                                logger.info(f"Started new detector ID: {detector.id} with camera {camera.ip_address} and model {model.model_name}")
-                                
-                            except Exception as e:
-                                logger.error(f"Error starting new detector {detector.id}: {e}")
-                                continue
-                    
-                    logger.info(f"Detector update completed. Active detectors: {len(self.detectors)}")
+                    active_db_detectors = {d.id: d for d in Detector.query.filter(Detector.running == True).all()}
+                    active_db_ids = set(active_db_detectors.keys())
+                    running_thread_ids = set(self.detectors.keys())
+
+                    # --- 1. Stop threads that are no longer needed ---
+                    ids_to_stop = running_thread_ids - active_db_ids
+                    for detector_id in ids_to_stop:
+                        logger.info(f"Detector {detector_id} no longer active in DB. Stopping thread.")
+                        self._stop_detector_thread(detector_id)
+
+                    # --- 2. Start new threads or restart if tracking mode changed ---
+                    for detector_id, db_detector in active_db_detectors.items():
+                        is_tracking = tracking_status.get(detector_id, False)
+                        
+                        # If thread is running, check if tracking mode changed
+                        if detector_id in self.detectors:
+                            if self.detectors[detector_id].tracking != is_tracking:
+                                logger.info(f"Tracking mode changed for detector {detector_id}. Restarting thread.")
+                                self._stop_detector_thread(detector_id)
+                                self._start_detector_thread(db_detector, is_tracking)
+                        # If thread is not running, start it
+                        else:
+                            logger.info(f"New active detector {detector_id}. Starting thread.")
+                            self._start_detector_thread(db_detector, is_tracking)
+                            
+                    logger.info(f"Detector update completed. Active threads: {len(self.detectors)}")
                     
                 except Exception as e:
-                    logger.error(f"Error during detector update: {e}")
-    
-    def _cleanup_unused_camera_streams(self, active_detectors):
-        """Stop camera streams that are no longer needed"""
+                    logger.error(f"Error during detector update: {e}", exc_info=True)
+
+    def _start_detector_thread(self, detector, is_tracking):
+        """Helper function to start a single detector thread."""
+        from app.models import Camera, Model
+        
         try:
-            from app.models import Camera
+            # Validate camera
+            camera = Camera.query.get(detector.camera_id)
+            if not camera or not camera.status:
+                logger.warning(f"Camera {detector.camera_id} is not active. Cannot start detector {detector.id}")
+                return
+
+            # Validate model
+            model = Model.query.get(detector.model_id)
+            if not model or not model.model_file:
+                logger.warning(f"Model {detector.model_id} is not valid. Cannot start detector {detector.id}")
+                return
+
+            # Get camera stream with detector consumer ID
+            consumer_id = f"detector_{detector.id}"
+            camera_stream = self.camera_manager.get_camera_stream(camera.ip_address, consumer_id)
+            if not camera_stream:
+                logger.warning(f"Cannot get camera stream for {camera.ip_address}. Cannot start detector {detector.id}")
+                return
+
+            # Start new detector thread
+            detector_thread = DetectorThread(
+                self.app,
+                detector.id,
+                camera_stream,
+                camera.ip_address,
+                self.camera_manager,
+                tracking=is_tracking
+            )
+            detector_thread.start()
+            self.detectors[detector.id] = detector_thread
             
-            # Get IP addresses of cameras currently used by active detectors
-            active_camera_ips = set()
-            for detector in active_detectors:
-                camera = Camera.query.get(detector.camera_id)
-                if camera:
-                    active_camera_ips.add(camera.ip_address)
-            
-            # Stop unused camera streams
-            streams_to_stop = []
-            for ip_address in list(self.camera_manager.camera_streams.keys()):
-                if ip_address not in active_camera_ips:
-                    streams_to_stop.append(ip_address)
-            
-            for ip_address in streams_to_stop:
-                logger.info(f"Stopping unused camera stream for IP: {ip_address}")
-                try:
-                    self.camera_manager.camera_streams[ip_address].stop()
-                    self.camera_manager.camera_streams[ip_address].join(timeout=5.0)
-                    del self.camera_manager.camera_streams[ip_address]
-                    logger.info(f"Successfully stopped camera stream for IP: {ip_address}")
-                except Exception as e:
-                    logger.error(f"Error stopping camera stream {ip_address}: {e}")
-                    
+            logger.info(f"Started detector ID: {detector.id} with tracking={is_tracking}")
+
         except Exception as e:
-            logger.error(f"Error during camera stream cleanup: {e}")
-    
+            logger.error(f"Error starting new detector {detector.id}: {e}", exc_info=True)
+            
+    def _stop_detector_thread(self, detector_id):
+        """Helper function to stop a single detector thread."""
+        if detector_id in self.detectors:
+            try:
+                detector_thread = self.detectors.pop(detector_id)
+                detector_thread.stop()
+                detector_thread.join(timeout=5.0)
+                logger.info(f"Successfully stopped detector ID: {detector_id}")
+            except Exception as e:
+                logger.error(f"Error stopping detector {detector_id}: {e}")
+                # Ensure it is removed from dict even if join fails
+                if detector_id in self.detectors:
+                    del self.detectors[detector_id]
+        else:
+            logger.warning(f"Attempted to stop non-existent detector thread {detector_id}")
+
     def stop_all(self):
         """Stop all detectors and camera streams"""
         with self.lock:
             logger.info("Stopping all detectors...")
             
             # Stop all detector threads
-            for detector_id, detector_thread in list(self.detectors.items()):
-                try:
-                    logger.info(f"Stopping detector thread {detector_id}")
-                    detector_thread.stop()
-                    detector_thread.join(timeout=5.0)  # Wait max 5 seconds
-                    logger.info(f"Stopped detector thread {detector_id}")
-                except Exception as e:
-                    logger.error(f"Error stopping detector thread {detector_id}: {e}")
+            for detector_id in list(self.detectors.keys()):
+                self._stop_detector_thread(detector_id)
             
             # Clear detectors dictionary
             self.detectors.clear()

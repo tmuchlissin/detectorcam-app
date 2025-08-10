@@ -11,6 +11,16 @@
           class="relative overflow-hidden rounded-lg w-full h-full"
           id="stream-container"
         >
+          <!-- WebRTC Video Element -->
+          <video
+            id="webrtc-video"
+            autoplay
+            playsinline
+            muted
+            class="w-full h-full object-contain hidden"
+          ></video>
+
+          <!-- Fallback to MJPEG -->
           <img
             src="{{ url_for('detector.stream_detector', id=detector.id, tracking=tracking) }}"
             alt="Detector Stream"
@@ -288,151 +298,287 @@
   let reconnectTimer;
 
   document.addEventListener("DOMContentLoaded", function () {
-    const streamImg = document.getElementById("camera-stream");
-    const errorMessage = document.getElementById("error-message");
-    const loadingIndicator = document.getElementById("loading-indicator");
-    const trackingToggle = document.getElementById('tracking-toggle');
+      const streamImg = document.getElementById("camera-stream");
+      const errorMessage = document.getElementById("error-message");
+      const loadingIndicator = document.getElementById("loading-indicator");
+      const trackingToggle = document.getElementById('tracking-toggle');
+      const webrtcVideo = document.getElementById('webrtc-video');
 
-    if (streamImg) {
-      streamImg.onload = function () {
-        if (loadingIndicator) loadingIndicator.classList.add("hidden");
-        if (errorMessage) errorMessage.classList.add("hidden");
-        streamImg.style.opacity = "1";
+      if (streamImg) {
+          streamImg.onload = function () {
+              if (loadingIndicator) loadingIndicator.classList.add("hidden");
+              if (errorMessage) errorMessage.classList.add("hidden");
+              streamImg.style.opacity = "1";
 
-        // Reset state if connection successful
-        currentDelay = INITIAL_DELAY;
-        if (reconnectTimer) clearTimeout(reconnectTimer);
+              // Reset state if connection successful
+              currentDelay = INITIAL_DELAY;
+              if (reconnectTimer) clearTimeout(reconnectTimer);
 
-        startFPSUpdates();
-      };
+              startFPSUpdates();
+          };
 
-      streamImg.onerror = function () {
-        streamImg.style.opacity = "0";
-        if (loadingIndicator) loadingIndicator.classList.add("hidden");
-        stopFPSUpdates();
+          streamImg.onerror = function () {
+              streamImg.style.opacity = "0";
+              if (loadingIndicator) loadingIndicator.classList.add("hidden");
+              stopFPSUpdates();
 
-        // Display error message
-        if (errorMessage) {
-            errorMessage.classList.remove("hidden");
-            errorMessage.querySelector('p.font-medium').textContent = "Stream Connection Lost";
-            errorMessage.querySelector('p.text-sm').textContent = `Try again in ${currentDelay / 1000} seconds...`;
-        }
+              // Display error message
+              if (errorMessage) {
+                  errorMessage.classList.remove("hidden");
+                  errorMessage.querySelector('p.font-medium').textContent = "Stream Connection Lost";
+                  errorMessage.querySelector('p.text-sm').textContent = `Try again in ${currentDelay / 1000} seconds...`;
+              }
 
-        console.error(`Stream error. Retrying in ${currentDelay / 1000}s...`);
+              console.error(`Stream error. Retrying in ${currentDelay / 1000}s...`);
 
-        // Retry schedule
-        if (reconnectTimer) clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(() => {
-            refreshStream(true);
-            // Double the pause for the next try, until you reach the maximum limit.
-            currentDelay = Math.min(currentDelay * BACKOFF_FACTOR, MAX_DELAY);
-        }, currentDelay);
-      };
+              // Retry schedule
+              if (reconnectTimer) clearTimeout(reconnectTimer);
+              reconnectTimer = setTimeout(() => {
+                  refreshStream(true);
+                  // Double the pause for the next try, until you reach the maximum limit.
+                  currentDelay = Math.min(currentDelay * BACKOFF_FACTOR, MAX_DELAY);
+              }, currentDelay);
+          };
 
-      // Start stream if load page
-      refreshStream();
-    }
+          // Start WebRTC if supported
+          if (window.RTCPeerConnection) {
+              startWebRTC();
+          } else {
+              console.log("WebRTC not supported, using MJPEG");
+              refreshStream();
+          }
+      }
 
-    if (trackingToggle) {
-        trackingToggle.addEventListener('change', function() {
-            isTracking = this.checked;
-            refreshStream();
-        });
-    }
+      if (trackingToggle) {
+          trackingToggle.addEventListener('change', function() {
+              isTracking = this.checked;
+              refreshStream();
+          });
+      }
   });
 
   function startFPSUpdates() {
-    stopFPSUpdates();
-    updateFPSInfo();
-    fpsUpdateInterval = setInterval(updateFPSInfo, 1000);
+      stopFPSUpdates();
+      updateFPSInfo();
+      fpsUpdateInterval = setInterval(updateFPSInfo, 1000);
   }
 
   function stopFPSUpdates() {
-    if (fpsUpdateInterval) {
-      clearInterval(fpsUpdateInterval);
-      fpsUpdateInterval = null;
-    }
+      if (fpsUpdateInterval) {
+          clearInterval(fpsUpdateInterval);
+          fpsUpdateInterval = null;
+      }
   }
 
   function updateFPSInfo() {
-    fetch(`{{ url_for('detector.get_fps_info', id=detector.id) }}`)
-      .then(response => response.json())
-      .then(data => {
-        const fpsValue = document.getElementById('fps-value');
-        const inferenceValue = document.getElementById('inference-value');
-        const detectionsValue = document.getElementById('detections-value');
-        if (fpsValue) fpsValue.textContent = data.fps.toFixed(1);
-        if (inferenceValue) inferenceValue.textContent = data.inference_time.toFixed(1) + 'ms';
-        if (detectionsValue) detectionsValue.textContent = data.detections;
+      fetch(`{{ url_for('detector.get_fps_info', id=detector.id) }}`)
+          .then(response => response.json())
+          .then(data => {
+              const fpsValue = document.getElementById('fps-value');
+              const inferenceValue = document.getElementById('inference-value');
+              const detectionsValue = document.getElementById('detections-value');
+              if (fpsValue) fpsValue.textContent = data.fps.toFixed(1);
+              if (inferenceValue) inferenceValue.textContent = data.inference_time.toFixed(1) + 'ms';
+              if (detectionsValue) detectionsValue.textContent = data.detections;
 
-        const sidebarFps = document.getElementById('sidebar-fps');
-        const sidebarInference = document.getElementById('sidebar-inference');
-        const sidebarDetections = document.getElementById('sidebar-detections');
-        if (sidebarFps) sidebarFps.textContent = data.fps.toFixed(1);
-        if (sidebarInference) sidebarInference.textContent = data.inference_time.toFixed(1) + 'ms';
-        if (sidebarDetections) sidebarDetections.textContent = data.detections;
+              const sidebarFps = document.getElementById('sidebar-fps');
+              const sidebarInference = document.getElementById('sidebar-inference');
+              const sidebarDetections = document.getElementById('sidebar-detections');
+              if (sidebarFps) sidebarFps.textContent = data.fps.toFixed(1);
+              if (sidebarInference) sidebarInference.textContent = data.inference_time.toFixed(1) + 'ms';
+              if (sidebarDetections) sidebarDetections.textContent = data.detections;
 
-        const statusIndicator = document.getElementById('status-indicator');
-        const statusText = document.getElementById('status-text');
-        if (statusIndicator && statusText) {
-          if (data.fps > 0) {
-            statusIndicator.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
-            statusText.textContent = 'Active';
-            statusText.className = 'text-xs text-green-600 font-medium';
-          } else {
-            statusIndicator.className = 'w-2 h-2 rounded-full bg-yellow-500';
-            statusText.textContent = 'Initializing...';
-            statusText.className = 'text-xs text-yellow-600 font-medium';
+              const statusIndicator = document.getElementById('status-indicator');
+              const statusText = document.getElementById('status-text');
+              if (statusIndicator && statusText) {
+                  if (data.fps > 0) {
+                      statusIndicator.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
+                      statusText.textContent = 'Active';
+                      statusText.className = 'text-xs text-green-600 font-medium';
+                  } else {
+                      statusIndicator.className = 'w-2 h-2 rounded-full bg-yellow-500';
+                      statusText.textContent = 'Initializing...';
+                      statusText.className = 'text-xs text-yellow-600 font-medium';
+                  }
+              }
+          })
+          .catch(error => {
+              console.error('Error fetching FPS info:', error);
+              const statusIndicator = document.getElementById('status-indicator');
+              const statusText = document.getElementById('status-text');
+              if (statusIndicator && statusText) {
+                  statusIndicator.className = 'w-2 h-2 rounded-full bg-red-500';
+                  statusText.textContent = 'Connection Error';
+                  statusText.className = 'text-xs text-red-600 font-medium';
+              }
+          });
+  }
+
+  // Start WebRTC Connection
+  async function startWebRTC() {
+      const videoElement = document.getElementById('webrtc-video');
+      const mjpegElement = document.getElementById('camera-stream');
+
+      // Use reliable STUN/TURN servers
+      const WEBRTC_CONFIG = {
+          iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+              { urls: "stun:stun2.l.google.com:19302" },
+              // Add your TURN server here if needed
+              // {
+              //     urls: "turn:your_turn_server.com:3478",
+              //     username: "username",
+              //     credential: "password"
+              // }
+          ],
+          iceTransportPolicy: "all",
+          bundlePolicy: "max-bundle",
+          rtcpMuxPolicy: "require",
+          iceCandidatePoolSize: 0
+      };
+
+      const pc = new RTCPeerConnection(WEBRTC_CONFIG);
+
+      // Optimize video playback
+      videoElement.autoplay = true;
+      videoElement.playsInline = true;
+      videoElement.muted = true;
+      videoElement.setAttribute('playsinline', 'true');
+
+      pc.ontrack = (event) => {
+          if (event.track.kind === 'video') {
+              const stream = new MediaStream([event.track]);
+              videoElement.srcObject = stream;
+
+              videoElement.play()
+                  .then(() => {
+                      console.log("WebRTC video playback started");
+                      videoElement.classList.remove('hidden');
+                      mjpegElement.classList.add('hidden');
+
+                      // Low-latency playback technique
+                      videoElement.playbackRate = 1.05;
+
+                      // Dynamic latency adjustment
+                      if ('requestVideoFrameCallback' in videoElement) {
+                          adjustPlayback(videoElement);
+                      }
+                  })
+                  .catch(e => {
+                      console.error("Error playing WebRTC video:", e);
+                      fallbackToMjpeg();
+                  });
           }
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching FPS info:', error);
-        const statusIndicator = document.getElementById('status-indicator');
-        const statusText = document.getElementById('status-text');
-        if (statusIndicator && statusText) {
-          statusIndicator.className = 'w-2 h-2 rounded-full bg-red-500';
-          statusText.textContent = 'Connection Error';
-          statusText.className = 'text-xs text-red-600 font-medium';
-        }
-      });
+      };
+
+      function adjustPlayback(video) {
+          video.requestVideoFrameCallback((now, metadata) => {
+              // Calculate latency (ms)
+              const latency = (performance.now() - metadata.expectedDisplayTime);
+
+              // Adjust playback rate based on latency
+              if (latency > 200) {
+                  video.playbackRate = Math.min(1.2, 1.0 + (latency - 200) / 1000);
+              } else {
+                  video.playbackRate = 1.0;
+              }
+
+              // Continue monitoring
+              if ('requestVideoFrameCallback' in video) {
+                  video.requestVideoFrameCallback(adjustPlayback);
+              }
+          });
+      }
+
+      pc.oniceconnectionstatechange = () => {
+          console.log("ICE connection state:", pc.iceConnectionState);
+          if (pc.iceConnectionState === 'failed' ||
+              pc.iceConnectionState === 'disconnected') {
+              fallbackToMjpeg();
+          }
+      };
+
+      const fallbackToMjpeg = () => {
+          console.log("Falling back to MJPEG");
+          if (videoElement.srcObject) {
+              videoElement.srcObject.getTracks().forEach(track => track.stop());
+              videoElement.srcObject = null;
+          }
+          videoElement.classList.add('hidden');
+          mjpegElement.classList.remove('hidden');
+          refreshStream();
+      };
+
+      try {
+          // Create offer with low-latency options
+          const offer = await pc.createOffer({
+              offerToReceiveVideo: true,
+              iceRestart: false
+          });
+          await pc.setLocalDescription(offer);
+
+          // Send offer to our signaling endpoint
+          const response = await fetch(`/detector/webrtc_offer/${DETECTOR_ID}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  sdp: pc.localDescription.sdp,
+                  type: pc.localDescription.type
+              })
+          });
+
+          if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const answer = await response.json();
+          await pc.setRemoteDescription(
+              new RTCSessionDescription(answer)
+          );
+
+          console.log("WebRTC connection established");
+      } catch (error) {
+          console.error('Error establishing WebRTC connection:', error);
+          fallbackToMjpeg();
+      }
   }
 
   function refreshStream(isRetry = false) {
-    const streamImg = document.getElementById("camera-stream");
-    if (!streamImg) return;
+      const streamImg = document.getElementById("camera-stream");
+      if (!streamImg) return;
 
-    if (!isRetry) {
-        currentDelay = INITIAL_DELAY;
-        if (reconnectTimer) clearTimeout(reconnectTimer);
-    }
+      if (!isRetry) {
+          currentDelay = INITIAL_DELAY;
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+      }
 
-    console.log("Attempting to load stream. Tracking:", isTracking);
-    document.getElementById("loading-indicator")?.classList.remove("hidden");
-    document.getElementById("error-message")?.classList.add("hidden");
+      console.log("Attempting to load stream. Tracking:", isTracking);
+      document.getElementById("loading-indicator")?.classList.remove("hidden");
+      document.getElementById("error-message")?.classList.add("hidden");
 
-    stopFPSUpdates();
+      stopFPSUpdates();
 
-    const baseUrl = `{{ url_for('detector.stream_detector', id=detector.id) }}?tracking=${isTracking}`;
-    streamImg.src = baseUrl + "&t=" + new Date().getTime();
+      const baseUrl = `{{ url_for('detector.stream_detector', id=detector.id) }}?tracking=${isTracking}`;
+      streamImg.src = baseUrl + "&t=" + new Date().getTime();
   }
 
   function toggleFullscreen() {
-    const streamContainer = document.getElementById("stream-container");
-    if (streamContainer) {
-      if (!document.fullscreenElement) {
-        streamContainer.requestFullscreen().catch((err) => {
-          console.error(`Error attempting to enable fullscreen: ${err.message}`);
-        });
-      } else {
-        document.exitFullscreen();
+      const streamContainer = document.getElementById("stream-container");
+      if (streamContainer) {
+          if (!document.fullscreenElement) {
+              streamContainer.requestFullscreen().catch((err) => {
+                  console.error(`Error attempting to enable fullscreen: ${err.message}`);
+              });
+          } else {
+              document.exitFullscreen();
+          }
       }
-    }
   }
 
   window.addEventListener('beforeunload', function() {
-    stopFPSUpdates();
-    if (reconnectTimer) clearTimeout(reconnectTimer);
+      stopFPSUpdates();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
   });
 </script>
 <style>

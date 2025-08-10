@@ -6,6 +6,7 @@ import tempfile
 from collections import deque
 from ultralytics import YOLO
 from .cctv import CameraStreamManager
+from .webrtc import init_webrtc_manager
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -28,12 +29,12 @@ class FPSCalculator:
     def update(self):
         current_time = time.time()
         self.frame_times.append(current_time)
-
+        
         if len(self.frame_times) >= 2:
             time_diff = self.frame_times[-1] - self.frame_times[0]
             if time_diff > 0:
                 self.last_fps = (len(self.frame_times) - 1) / time_diff
-
+                
         return self.last_fps
 
 class DetectorThread(threading.Thread):
@@ -53,11 +54,11 @@ class DetectorThread(threading.Thread):
         
         # --- Custom pretrained tracking ---
         self.model_name = None
-
+        
         # FPS calculation
         self.fps_calculator = FPSCalculator()
         self.inference_times = deque(maxlen=30)
-
+        
         # Register this detector as a consumer
         if self.camera_stream:
             self.camera_stream.add_consumer(self.consumer_id)
@@ -107,8 +108,11 @@ class DetectorThread(threading.Thread):
             logger.error(f"Failed to load model for detector ID: {self.detector_id}")
             return
         
-        frame_count = 0 
-            
+        frame_count = 0
+        
+        # Initialize WebRTC manager
+        webrtc_manager = init_webrtc_manager()
+        
         # --- 1. Frame skipping logic ---
         TARGET_FPS = 15.0
         TIME_BUDGET = 1.0 / TARGET_FPS
@@ -138,82 +142,83 @@ class DetectorThread(threading.Thread):
                     frame = self.camera_stream.get_frame()
                     if frame is not None:
                         frame_count += 1
-                        
-                        # --- 2. Frame skipping logic ---
-                        if skip_next_frame:
-                            skip_next_frame = False
-                            continue 
-
-                        try:
-                            with self.lock:
-                                inference_start = time.time()
-                                
-                                if self.tracking:
-                                    results = self.yolo_model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False)
-                                else:
-                                    results = self.yolo_model(frame, verbose=False)
-                                    if results[0].boxes.id is not None:
-                                        results[0].boxes.id = None
-                                
-                                # --- Custom pretrained tracking ---
-                                # logger.info(f"Checking filter condition for model: '{self.model_name}'")
-                                if self.model_name and self.model_name.strip().lower() == 'pretrained':
-                                    person_class_id = 0
-                                    mask = results[0].boxes.cls == person_class_id
-                                    results[0] = results[0][mask]
-                                    
-                                inference_time = time.time() - inference_start
-                                self.inference_times.append(inference_time)
-                                
-                                # --- 2. Frame skipping logic ---
-                                if inference_time > TIME_BUDGET:
-                                    skip_next_frame = True
-                                    logger.warning(f"BOTTLENECK: Processing time {inference_time*1000:.0f}ms > Budget {TIME_BUDGET*1000:.0f}ms. Skipping next frame.")
-                                
-                                annotated_frame = results[0].plot(
-                                    conf=True,
-                                    labels=True,
-                                    boxes=True,
-                                    line_width=2,
-                                    font_size=12
-                                )
-                                
-                                current_fps = self.fps_calculator.update()
-                                avg_inference_time = self._calculate_average_inference_time()
-                                
-                                annotated_frames[self.detector_id] = annotated_frame
-                                
-                                detector_fps_info[self.detector_id] = {
-                                    'fps': round(current_fps, 1),
-                                    'inference_time': round(avg_inference_time * 1000, 1),
-                                    'detections': len(results[0].boxes),
-                                    'last_update': time.time()
-                                }
-                                
-                                if len(results[0].boxes) > 0 and frame_count % 60 == 0:
-                                    detections = len(results[0].boxes)
-                                    logger.info(f"Detector {self.detector_id}: {detections} objects, FPS: {current_fps:.1f}, Inference: {avg_inference_time*1000:.1f}ms")
-                                    
-                        except Exception as e:
-                            logger.error(f"Error processing frame for detector ID: {self.detector_id}: {e}", exc_info=True)
+                    
+                    # --- 2. Frame skipping logic ---
+                    if skip_next_frame:
+                        skip_next_frame = False
+                        continue
+                    
+                    try:
+                        with self.lock:
+                            inference_start = time.time()
                             
+                            if self.tracking:
+                                results = self.yolo_model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False)
+                            else:
+                                results = self.yolo_model(frame, verbose=False)
+                                if results[0].boxes.id is not None:
+                                    results[0].boxes.id = None
+                            
+                            # --- Custom pretrained tracking ---
+                            if self.model_name and self.model_name.strip().lower() == 'pretrained':
+                                person_class_id = 0
+                                mask = results[0].boxes.cls == person_class_id
+                                results[0] = results[0][mask]
+                            
+                            inference_time = time.time() - inference_start
+                            self.inference_times.append(inference_time)
+                            
+                            # --- 2. Frame skipping logic ---
+                            if inference_time > TIME_BUDGET:
+                                skip_next_frame = True
+                                logger.warning(f"BOTTLENECK: Processing time {inference_time*1000:.0f}ms > Budget {TIME_BUDGET*1000:.0f}ms. Skipping next frame.")
+                            
+                            annotated_frame = results[0].plot(
+                                conf=True,
+                                labels=True,
+                                boxes=True,
+                                line_width=2,
+                                font_size=12
+                            )
+                            
+                            current_fps = self.fps_calculator.update()
+                            avg_inference_time = self._calculate_average_inference_time()
+                            
+                            # Store frame for streaming
+                            annotated_frames[self.detector_id] = annotated_frame
+                            
+                            # Push to WebRTC
+                            webrtc_manager.push_frame(self.detector_id, annotated_frame)
+                            
+                            detector_fps_info[self.detector_id] = {
+                                'fps': round(current_fps, 1),
+                                'inference_time': round(avg_inference_time * 1000, 1),
+                                'detections': len(results[0].boxes),
+                                'last_update': time.time()
+                            }
+                            
+                            if len(results[0].boxes) > 0 and frame_count % 60 == 0:
+                                detections = len(results[0].boxes)
+                                logger.info(f"Detector {self.detector_id}: {detections} objects, FPS: {current_fps:.1f}, Inference: {avg_inference_time*1000:.1f}ms")
+                    
+                    except Exception as e:
+                        logger.error(f"Error processing frame for detector ID: {self.detector_id}: {e}", exc_info=True)
+                
                     else:
                         time.sleep(0.1)
-                    
+                
                     frame_count += 1
                     time.sleep(0.033)
-                    
+                
                 except Exception as e:
                     logger.error(f"Unexpected error in detector thread {self.detector_id}: {e}", exc_info=True)
                     time.sleep(1)
-                    
-        except Exception as e:
-            logger.error(f"Critical error in detector thread {self.detector_id}: {e}", exc_info=True)
+        
         finally:
             self._cleanup()
         
         logger.info(f"DetectorThread for detector ID: {self.detector_id} finished")
-    
+
     def _cleanup(self):
         """Cleanup resources"""
         try:
@@ -235,10 +240,10 @@ class DetectorThread(threading.Thread):
             
             if self.detector_id in detector_fps_info:
                 del detector_fps_info[self.detector_id]
-                
+        
         except Exception as e:
             logger.error(f"Error during cleanup for detector {self.detector_id}: {e}")
-    
+
     def stop(self):
         logger.info(f"Stopping DetectorThread for detector ID: {self.detector_id}")
         self.running = False
@@ -258,12 +263,12 @@ class DetectorManager:
     def initialize_detectors(self, app):
         self.app = app
         self.update_detectors()
-
+    
     def update_detectors(self, tracking_status={}):
         if not self.app:
             logger.error("DetectorManager not initialized with app context")
             return
-            
+        
         from app.models import Detector
         
         with self.app.app_context():
@@ -274,12 +279,12 @@ class DetectorManager:
                     active_db_detectors = {d.id: d for d in Detector.query.filter(Detector.running == True).all()}
                     active_db_ids = set(active_db_detectors.keys())
                     running_thread_ids = set(self.detectors.keys())
-
+                    
                     ids_to_stop = running_thread_ids - active_db_ids
                     for detector_id in ids_to_stop:
                         logger.info(f"Detector {detector_id} no longer active in DB. Stopping thread.")
                         self._stop_detector_thread(detector_id)
-
+                    
                     for detector_id, db_detector in active_db_detectors.items():
                         is_tracking = tracking_status.get(detector_id, False)
                         
@@ -291,12 +296,12 @@ class DetectorManager:
                         else:
                             logger.info(f"New active detector {detector_id}. Starting thread.")
                             self._start_detector_thread(db_detector, is_tracking)
-                            
-                    logger.info(f"Detector update completed. Active threads: {len(self.detectors)}")
                     
+                    logger.info(f"Detector update completed. Active threads: {len(self.detectors)}")
+                
                 except Exception as e:
                     logger.error(f"Error during detector update: {e}", exc_info=True)
-
+    
     def _start_detector_thread(self, detector, is_tracking):
         from app.models import Camera, Model
         
@@ -305,18 +310,18 @@ class DetectorManager:
             if not camera or not camera.status:
                 logger.warning(f"Camera {detector.camera_id} is not active. Cannot start detector {detector.id}")
                 return
-
+            
             model = Model.query.get(detector.model_id)
             if not model or not model.model_file:
                 logger.warning(f"Model {detector.model_id} is not valid. Cannot start detector {detector.id}")
                 return
-
+            
             consumer_id = f"detector_{detector.id}"
             camera_stream = self.camera_manager.get_camera_stream(camera.ip_address, consumer_id)
             if not camera_stream:
                 logger.warning(f"Cannot get camera stream for {camera.ip_address}. Cannot start detector {detector.id}")
                 return
-
+            
             detector_thread = DetectorThread(
                 self.app,
                 detector.id,
@@ -329,10 +334,10 @@ class DetectorManager:
             self.detectors[detector.id] = detector_thread
             
             logger.info(f"Started detector ID: {detector.id} with tracking={is_tracking}")
-
+            
         except Exception as e:
             logger.error(f"Error starting new detector {detector.id}: {e}", exc_info=True)
-            
+    
     def _stop_detector_thread(self, detector_id):
         if detector_id in self.detectors:
             try:
@@ -346,7 +351,7 @@ class DetectorManager:
                     del self.detectors[detector_id]
         else:
             logger.warning(f"Attempted to stop non-existent detector thread {detector_id}")
-
+    
     def stop_all(self):
         with self.lock:
             logger.info("Stopping all detectors...")
